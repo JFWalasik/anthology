@@ -1,28 +1,64 @@
 // app.js
 // Draws the page and responds to clicks and typing. All saving and loading goes
 // through Storage (storage.js), so this file doesn't care where data lives.
-// Note text is only ever put on the page as plain text (textContent), never as
-// HTML, so nothing typed into a note can run as code.
+// Text people type is only ever put on the page as plain text (textContent or
+// input values), never as HTML, so nothing typed can run as code.
 
 const SAVE_DELAY_MS = 500;
+const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
 const NEW_FOLDER = 'new';
 const BACKUP_PICKER_ID = 'anthology-backups';
 const BACKUP_TYPES = [{ description: 'Anthology backup', accept: { 'application/json': ['.json'] } }];
 
+// Folders are shared. Each side lists its own kind of item inside them.
+const SIDES = {
+  notes: {
+    items: () => state.notes,
+    title: note => noteTitle(note),
+    save: note => Storage.saveNote(note),
+    newLabel: 'New note',
+    plural: 'notes',
+    titlePlaceholder: 'Title',
+    deleteLabel: 'Delete note',
+    emptyMessage: 'Choose a note, or start a new one.',
+  },
+  tasks: {
+    items: () => state.taskLists,
+    title: list => list.title.trim() || 'New task list',
+    save: list => Storage.saveTaskList(list),
+    newLabel: 'New task list',
+    plural: 'task lists',
+    titlePlaceholder: 'Task list name',
+    deleteLabel: 'Delete list',
+    emptyMessage: 'Choose a task list, or start a new one.',
+  },
+};
+
+function newView() {
+  return {
+    currentId: null,
+    activeFolderId: null,   // where the New button puts the next item; null means top level
+    openFolderIds: new Set(),
+  };
+}
+
 const state = {
   folders: [],
   notes: [],
+  taskLists: [],
+  tasks: [],
   side: 'notes',
-  currentNoteId: null,
-  activeFolderId: null,     // where "New note" puts the next note; null means top level
-  openFolderIds: new Set(),
+  views: { notes: newView(), tasks: newView() },
   editingFolderId: null,    // folder whose name is being typed, or NEW_FOLDER
 };
 
 const els = {};
-let saveTimer = null;
-let unsavedNoteId = null;
+const pendingSaves = new Map();
+let problemReported = false;
+let dragTaskId = null;
+let lastDeletedTask = null;
+let undoTimer = null;
 
 // ---- Small helpers ----
 
@@ -33,9 +69,21 @@ function el(tag, className, text) {
   return node;
 }
 
+function button(className, text, label, onClick) {
+  const node = el('button', className, text);
+  node.type = 'button';
+  if (label) node.setAttribute('aria-label', label);
+  node.addEventListener('click', onClick);
+  return node;
+}
+
 function newId() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function plural(count, one, many) {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 // The title is the first line with any text, minus Markdown heading marks.
@@ -67,186 +115,371 @@ function formatDate(ms) {
   return date.toLocaleDateString([], options);
 }
 
-// For example anthology-backup-2026-10-21-1435-12-notes.json
-function backupFileName(noteCount) {
+// For example anthology-backup-2026-10-21-1435-12-notes-3-lists.json
+function backupFileName(data) {
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  return `anthology-backup-${stamp}-${noteCount}-${noteCount === 1 ? 'note' : 'notes'}.json`;
+  const notes = plural(data.notes.length, 'note', 'notes').replace(' ', '-');
+  const lists = plural(data.taskLists.length, 'list', 'lists').replace(' ', '-');
+  return `anthology-backup-${stamp}-${notes}-${lists}.json`;
 }
 
 const byRecent = (a, b) => b.updatedAt - a.updatedAt;
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const byPosition = (a, b) => a.position - b.position;
 
-function currentNote() {
-  return state.notes.find(note => note.id === state.currentNoteId) || null;
+const side = () => SIDES[state.side];
+const view = () => state.views[state.side];
+
+function currentItem() {
+  return side().items().find(item => item.id === view().currentId) || null;
 }
 
 function findFolder(id) {
   return state.folders.find(folder => folder.id === id) || null;
 }
 
-function notesIn(folderId) {
-  return state.notes.filter(note => note.folderId === folderId).sort(byRecent);
+function itemsIn(folderId) {
+  return side().items().filter(item => item.folderId === folderId).sort(byRecent);
 }
 
-function isEmpty(note) {
-  return note.body.trim() === '';
+function tasksIn(listId) {
+  return state.tasks.filter(task => task.listId === listId).sort(byPosition);
+}
+
+function isEmptyItem(item) {
+  if (state.side === 'notes') return item.body.trim() === '';
+  return item.title.trim() === '' && !state.tasks.some(task => task.listId === item.id);
 }
 
 function reportProblem(err) {
   console.error(err);
-  alert("Your change couldn't be saved. The browser may be out of storage space or blocking it.");
+  setStatus('Not saved: storage problem', true);
+  if (!problemReported) {
+    problemReported = true;
+    alert("Your change couldn't be saved. The browser may be out of storage space or blocking it.");
+  }
 }
 
+// ---- Preferences (per device) ----
+
 function savePrefs() {
+  const viewPrefs = v => ({
+    currentId: v.currentId,
+    activeFolderId: v.activeFolderId,
+    openFolderIds: [...v.openFolderIds],
+  });
   Storage.savePrefs({
     side: state.side,
-    currentNoteId: state.currentNoteId,
-    activeFolderId: state.activeFolderId,
-    openFolderIds: [...state.openFolderIds],
+    views: { notes: viewPrefs(state.views.notes), tasks: viewPrefs(state.views.tasks) },
   });
 }
 
 function applyPrefs(prefs) {
   const folderIds = new Set(state.folders.map(folder => folder.id));
   if (prefs.side === 'tasks') state.side = 'tasks';
-  if (state.notes.some(note => note.id === prefs.currentNoteId)) state.currentNoteId = prefs.currentNoteId;
-  if (folderIds.has(prefs.activeFolderId)) state.activeFolderId = prefs.activeFolderId;
-  for (const id of prefs.openFolderIds || []) {
-    if (folderIds.has(id)) state.openFolderIds.add(id);
+  const saved = prefs.views || {};
+  // Preferences saved by 0.2 only covered notes.
+  if (!saved.notes && prefs.currentNoteId !== undefined) {
+    saved.notes = { currentId: prefs.currentNoteId, activeFolderId: prefs.activeFolderId, openFolderIds: prefs.openFolderIds };
+  }
+  for (const [name, items] of [['notes', state.notes], ['tasks', state.taskLists]]) {
+    const from = saved[name] || {};
+    const to = state.views[name];
+    if (items.some(item => item.id === from.currentId)) to.currentId = from.currentId;
+    if (folderIds.has(from.activeFolderId)) to.activeFolderId = from.activeFolderId;
+    for (const id of from.openFolderIds || []) {
+      if (folderIds.has(id)) to.openFolderIds.add(id);
+    }
   }
 }
 
 // ---- Saving ----
+// Typing is saved about half a second after it stops. Each pending save has a
+// key, such as "note:<id>", so saves for the same thing replace each other.
 
 function setStatus(text, isProblem = false) {
   els.saveStatus.textContent = text;
   els.saveStatus.classList.toggle('is-problem', isProblem);
 }
 
-function scheduleSave(noteId) {
-  unsavedNoteId = noteId;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushSave, SAVE_DELAY_MS);
-}
-
-async function flushSave() {
-  clearTimeout(saveTimer);
-  saveTimer = null;
-  const note = state.notes.find(n => n.id === unsavedNoteId);
-  unsavedNoteId = null;
-  if (!note) return;
+async function runSave(run) {
   try {
-    await Storage.saveNote(note);
-    if (note.id === state.currentNoteId) setStatus('Saved');
-  } catch (err) {
-    console.error(err);
-    setStatus('Not saved: storage problem', true);
-  }
-}
-
-function cancelPendingSave() {
-  clearTimeout(saveTimer);
-  saveTimer = null;
-  unsavedNoteId = null;
-}
-
-async function removeNote(id) {
-  state.notes = state.notes.filter(note => note.id !== id);
-  try {
-    await Storage.deleteNote(id);
+    await run();
   } catch (err) {
     reportProblem(err);
   }
 }
 
-// Saves the open note, or discards it if it was left empty.
-async function leaveCurrentNote() {
-  await flushSave();
-  const note = currentNote();
-  if (note && isEmpty(note)) await removeNote(note.id);
+function saveSoon(key, run) {
+  cancelSave(key);
+  const timer = setTimeout(() => {
+    pendingSaves.delete(key);
+    runSave(run);
+  }, SAVE_DELAY_MS);
+  pendingSaves.set(key, { timer, run });
 }
 
-// ---- Notes ----
+function cancelSave(key) {
+  const pending = pendingSaves.get(key);
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingSaves.delete(key);
+  }
+}
 
-async function openNote(id) {
-  if (id === state.currentNoteId) return;
-  await leaveCurrentNote();
-  state.currentNoteId = id;
-  const note = currentNote();
-  if (note) state.activeFolderId = note.folderId;
+async function flushSaves() {
+  const waiting = [...pendingSaves.values()];
+  pendingSaves.clear();
+  for (const pending of waiting) {
+    clearTimeout(pending.timer);
+    await runSave(pending.run);
+  }
+}
+
+function saveItemSoon(item) {
+  const save = side().save;
+  saveSoon(`item:${item.id}`, async () => {
+    await save(item);
+    if (item.id === view().currentId) setStatus('Saved');
+  });
+}
+
+// A change to any task counts as editing its list, which moves the list to
+// the top of the sidebar.
+function touchList(listId) {
+  const list = state.taskLists.find(l => l.id === listId);
+  if (!list) return;
+  list.updatedAt = Date.now();
+  saveSoon(`item:${list.id}`, async () => {
+    await Storage.saveTaskList(list);
+    if (list.id === state.views.tasks.currentId) setStatus('Saved');
+  });
+  renderSidebar();
+}
+
+// ---- Notes and task lists ----
+
+async function removeItem(item) {
+  cancelSave(`item:${item.id}`);
+  if (state.side === 'notes') {
+    state.notes = state.notes.filter(note => note.id !== item.id);
+    await runSave(() => Storage.deleteNote(item.id));
+  } else {
+    for (const task of tasksIn(item.id)) cancelSave(`task:${task.id}`);
+    state.taskLists = state.taskLists.filter(list => list.id !== item.id);
+    state.tasks = state.tasks.filter(task => task.listId !== item.id);
+    await runSave(() => Storage.deleteTaskList(item.id));
+  }
+}
+
+// Saves the open item, or discards it if it was left empty. Blank tasks left
+// in a task list are cleared out too.
+async function leaveCurrentItem() {
+  await flushSaves();
+  const item = currentItem();
+  if (!item) return;
+  if (state.side === 'tasks') {
+    for (const task of tasksIn(item.id).filter(t => t.text.trim() === '')) await removeTaskQuietly(task);
+  }
+  if (isEmptyItem(item)) await removeItem(item);
+}
+
+async function openItem(id) {
+  if (id === view().currentId) return;
+  await leaveCurrentItem();
+  view().currentId = id;
+  const item = currentItem();
+  if (item) view().activeFolderId = item.folderId;
   setStatus('');
   savePrefs();
   render();
 }
 
-async function createNote() {
-  await leaveCurrentNote();
+async function createItem() {
+  await leaveCurrentItem();
   const now = Date.now();
-  const note = { id: newId(), folderId: state.activeFolderId, body: '', createdAt: now, updatedAt: now };
-  state.notes.push(note);
-  state.currentNoteId = note.id;
-  if (note.folderId) state.openFolderIds.add(note.folderId);
-  try {
-    await Storage.saveNote(note);
-  } catch (err) {
-    reportProblem(err);
-  }
+  const base = { id: newId(), folderId: view().activeFolderId, createdAt: now, updatedAt: now };
+  const item = state.side === 'notes'
+    ? { ...base, body: '' }
+    : { ...base, title: '', showCompleted: true };
+  side().items().push(item);
+  view().currentId = item.id;
+  if (item.folderId) view().openFolderIds.add(item.folderId);
+  await runSave(() => side().save(item));
   setStatus('');
   savePrefs();
   render();
   els.titleInput.focus();
 }
 
-async function deleteNote(note) {
-  if (!note) return;
-  if (!isEmpty(note) && !confirm(`Are you sure you want to delete "${noteTitle(note)}"? ${NO_RETRIEVE}`)) return;
-  if (note.id === state.currentNoteId) {
-    cancelPendingSave();
-    state.currentNoteId = null;
+async function deleteItem(item) {
+  if (!item) return;
+  if (!isEmptyItem(item)) {
+    let message;
+    if (state.side === 'notes') {
+      message = `Are you sure you want to delete "${noteTitle(item)}"?`;
+    } else {
+      const count = tasksIn(item.id).length;
+      const contents = count === 0 ? '' : ` and its ${plural(count, 'task', 'tasks')}`;
+      message = `Are you sure you want to delete the task list "${side().title(item)}"${contents}?`;
+    }
+    if (!confirm(`${message} ${NO_RETRIEVE}`)) return;
   }
-  await removeNote(note.id);
+  if (item.id === view().currentId) view().currentId = null;
+  await removeItem(item);
   savePrefs();
   render();
 }
 
-// Moving a note doesn't count as editing it, so its date stays the same.
-async function moveCurrentNote(folderId) {
-  const note = currentNote();
-  if (!note || note.folderId === folderId) return;
-  await flushSave();
-  note.folderId = folderId;
-  if (folderId) state.openFolderIds.add(folderId);
-  state.activeFolderId = folderId;
-  try {
-    await Storage.saveNote(note);
-  } catch (err) {
-    reportProblem(err);
-  }
+// Moving an item doesn't count as editing it, so its date stays the same.
+async function moveCurrentItem(folderId) {
+  const item = currentItem();
+  if (!item || item.folderId === folderId) return;
+  await flushSaves();
+  item.folderId = folderId;
+  if (folderId) view().openFolderIds.add(folderId);
+  view().activeFolderId = folderId;
+  await runSave(() => side().save(item));
   savePrefs();
   render();
 }
 
-function handleTyping() {
-  const note = currentNote();
-  if (!note) return;
-  note.body = joinNote(els.titleInput.value, els.editor.value);
-  note.updatedAt = Date.now();
+function handleTitleInput() {
+  const item = currentItem();
+  if (!item) return;
+  if (state.side === 'notes') {
+    item.body = joinNote(els.titleInput.value, els.editor.value);
+  } else {
+    item.title = els.titleInput.value;
+  }
+  item.updatedAt = Date.now();
   setStatus('');
-  scheduleSave(note.id);
+  saveItemSoon(item);
   renderSidebar();
+}
+
+// ---- Tasks ----
+
+// Gives the tasks positions 0, 1, 2… in the given order and saves them.
+async function savePositions(ordered) {
+  ordered.forEach((task, index) => { task.position = index; });
+  await runSave(() => Storage.saveTasks(ordered));
+}
+
+async function addTask(list, text, afterTask = null) {
+  const task = {
+    id: newId(), listId: list.id, text, done: false,
+    position: 0, createdAt: Date.now(), completedAt: null,
+  };
+  const ordered = tasksIn(list.id);
+  const index = afterTask ? ordered.indexOf(afterTask) + 1 : ordered.length;
+  ordered.splice(index, 0, task);
+  state.tasks.push(task);
+  await savePositions(ordered);
+  touchList(list.id);
+  return task;
+}
+
+async function removeTaskQuietly(task) {
+  cancelSave(`task:${task.id}`);
+  state.tasks = state.tasks.filter(t => t.id !== task.id);
+  await runSave(() => Storage.deleteTask(task.id));
+  touchList(task.listId);
+}
+
+async function deleteTask(task) {
+  await removeTaskQuietly(task);
+  renderTasks();
+  if (task.text.trim() !== '') showUndo(task);
+}
+
+async function setTaskDone(task, done) {
+  task.done = done;
+  task.completedAt = done ? Date.now() : null;
+  await runSave(() => Storage.saveTask(task));
+  touchList(task.listId);
+  renderTasks();
+}
+
+// Moves a task one step up or down among the tasks in the same group
+// (open or completed).
+async function nudgeTask(task, step) {
+  const group = tasksIn(task.listId).filter(t => t.done === task.done);
+  const neighbor = group[group.indexOf(task) + step];
+  if (!neighbor) return;
+  const ordered = tasksIn(task.listId);
+  const a = ordered.indexOf(task);
+  const b = ordered.indexOf(neighbor);
+  [ordered[a], ordered[b]] = [ordered[b], ordered[a]];
+  await savePositions(ordered);
+  touchList(task.listId);
+  renderTasks();
+  const again = document.querySelector(`[data-task-id="${task.id}"] .${step < 0 ? 'move-up' : 'move-down'}`);
+  if (again) again.focus();
+}
+
+async function dropTask(dragged, target, after) {
+  const ordered = tasksIn(dragged.listId).filter(t => t !== dragged);
+  ordered.splice(ordered.indexOf(target) + (after ? 1 : 0), 0, dragged);
+  await savePositions(ordered);
+  touchList(dragged.listId);
+  renderTasks();
+}
+
+async function toggleCompleted() {
+  const list = currentItem();
+  if (!list) return;
+  list.showCompleted = !list.showCompleted;
+  await runSave(() => Storage.saveTaskList(list));
+  renderTasks();
+}
+
+function focusTask(taskId, atEnd = true) {
+  const input = document.querySelector(`[data-task-id="${taskId}"] .task-text`);
+  if (!input) return;
+  input.focus();
+  const at = atEnd ? input.value.length : 0;
+  input.setSelectionRange(at, at);
+}
+
+// ---- Undo for deleted tasks ----
+
+function showUndo(task) {
+  lastDeletedTask = { ...task };
+  els.toastText.textContent = 'Task deleted';
+  els.toast.hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndo, UNDO_SECONDS * 1000);
+}
+
+function hideUndo() {
+  clearTimeout(undoTimer);
+  els.toast.hidden = true;
+  lastDeletedTask = null;
+}
+
+async function undoDelete() {
+  const task = lastDeletedTask;
+  hideUndo();
+  if (!task || !state.taskLists.some(list => list.id === task.listId)) return;
+  state.tasks.push(task);
+  await runSave(() => Storage.saveTask(task));
+  touchList(task.listId);
+  renderTasks();
 }
 
 // ---- Folders ----
 
 function toggleFolder(folder) {
-  if (state.openFolderIds.has(folder.id)) {
-    state.openFolderIds.delete(folder.id);
-    if (state.activeFolderId === folder.id) state.activeFolderId = null;
+  const v = view();
+  if (v.openFolderIds.has(folder.id)) {
+    v.openFolderIds.delete(folder.id);
+    if (v.activeFolderId === folder.id) v.activeFolderId = null;
   } else {
-    state.openFolderIds.add(folder.id);
-    state.activeFolderId = folder.id;
+    v.openFolderIds.add(folder.id);
+    v.activeFolderId = folder.id;
   }
   savePrefs();
   renderSidebar();
@@ -259,41 +492,42 @@ function startEditingFolder(id) {
 
 async function finishEditingFolder(folder, name) {
   state.editingFolderId = null;
-  try {
-    if (name && folder && name !== folder.name) {
-      folder.name = name;
-      await Storage.saveFolder(folder);
-    } else if (name && !folder) {
-      const created = { id: newId(), name, parentId: null, createdAt: Date.now() };
-      state.folders.push(created);
-      state.openFolderIds.add(created.id);
-      state.activeFolderId = created.id;
-      savePrefs();
-      await Storage.saveFolder(created);
-    }
-  } catch (err) {
-    reportProblem(err);
+  if (name && folder && name !== folder.name) {
+    folder.name = name;
+    await runSave(() => Storage.saveFolder(folder));
+  } else if (name && !folder) {
+    const created = { id: newId(), name, parentId: null, createdAt: Date.now() };
+    state.folders.push(created);
+    view().openFolderIds.add(created.id);
+    view().activeFolderId = created.id;
+    savePrefs();
+    await runSave(() => Storage.saveFolder(created));
   }
-  renderSidebar();
+  render();
 }
 
 async function deleteFolder(folder) {
-  const count = state.notes.filter(note => note.folderId === folder.id).length;
-  const contents = count === 0 ? '' : count === 1 ? ' and the note in it' : ` and the ${count} notes in it`;
+  const notes = state.notes.filter(note => note.folderId === folder.id);
+  const lists = state.taskLists.filter(list => list.folderId === folder.id);
+  const parts = [];
+  if (notes.length) parts.push(plural(notes.length, 'note', 'notes'));
+  if (lists.length) parts.push(plural(lists.length, 'task list', 'task lists'));
+  const contents = parts.length ? ` and its ${parts.join(' and ')}` : '';
   if (!confirm(`Are you sure you want to delete the folder "${folder.name}"${contents}? ${NO_RETRIEVE}`)) return;
-  if (currentNote() && currentNote().folderId === folder.id) {
-    cancelPendingSave();
-    state.currentNoteId = null;
-  }
+
+  await flushSaves();
+  const listIds = new Set(lists.map(list => list.id));
   state.notes = state.notes.filter(note => note.folderId !== folder.id);
+  state.taskLists = state.taskLists.filter(list => !listIds.has(list.id));
+  state.tasks = state.tasks.filter(task => !listIds.has(task.listId));
   state.folders = state.folders.filter(f => f.id !== folder.id);
-  state.openFolderIds.delete(folder.id);
-  if (state.activeFolderId === folder.id) state.activeFolderId = null;
-  try {
-    await Storage.deleteFolder(folder.id);
-  } catch (err) {
-    reportProblem(err);
+  for (const [name, items] of [['notes', state.notes], ['tasks', state.taskLists]]) {
+    const v = state.views[name];
+    if (!items.some(item => item.id === v.currentId)) v.currentId = null;
+    v.openFolderIds.delete(folder.id);
+    if (v.activeFolderId === folder.id) v.activeFolderId = null;
   }
+  await runSave(() => Storage.deleteFolder(folder.id));
   savePrefs();
   render();
 }
@@ -301,7 +535,7 @@ async function deleteFolder(folder) {
 // ---- Backup ----
 
 async function downloadBackup() {
-  await flushSave();
+  await flushSaves();
   let data;
   try {
     data = await Storage.loadAll();
@@ -311,7 +545,7 @@ async function downloadBackup() {
     return;
   }
   const text = Storage.makeBackup(data);
-  const name = backupFileName(data.notes.length);
+  const name = backupFileName(data);
 
   // Chrome and Edge can show a Save window, so you choose the folder; the
   // window remembers the last folder used. Other browsers use the downloads folder.
@@ -359,37 +593,39 @@ async function restoreBackup(file) {
     alert(err.message);
     return;
   }
-  const summary = `${data.notes.length} ${data.notes.length === 1 ? 'note' : 'notes'} and ` +
-    `${data.folders.length} ${data.folders.length === 1 ? 'folder' : 'folders'}`;
+  const summary = `${plural(data.notes.length, 'note', 'notes')}, ` +
+    `${plural(data.taskLists.length, 'task list', 'task lists')} and ` +
+    `${plural(data.folders.length, 'folder', 'folders')}`;
   const ok = confirm(
-    `Are you sure? Restoring replaces all your current notes and folders with the ${summary} in this backup. ` +
+    `Are you sure? Restoring replaces everything currently in Anthology with the ${summary} in this backup. ` +
     `${NO_RETRIEVE} Download a backup first if you might want the current ones.`
   );
   if (!ok) return;
-  cancelPendingSave();
+  for (const pending of pendingSaves.values()) clearTimeout(pending.timer);
+  pendingSaves.clear();
+  hideUndo();
   try {
     await Storage.replaceAll(data);
   } catch (err) {
     reportProblem(err);
     return;
   }
-  state.folders = data.folders;
-  state.notes = data.notes;
-  state.currentNoteId = null;
-  state.activeFolderId = null;
-  state.openFolderIds.clear();
+  Object.assign(state, data);
+  state.views = { notes: newView(), tasks: newView() };
   savePrefs();
   render();
 }
 
 // ---- Sides ----
 
-async function setSide(side) {
-  if (side === state.side) return;
-  await flushSave();
-  state.side = side;
+async function setSide(name) {
+  if (name === state.side) return;
+  await leaveCurrentItem();
+  state.side = name;
+  state.editingFolderId = null;
+  setStatus('');
   savePrefs();
-  renderSide();
+  render();
 }
 
 // ---- Drawing the page ----
@@ -397,89 +633,76 @@ async function setSide(side) {
 function render() {
   renderSide();
   renderSidebar();
-  renderEditor();
+  renderMain();
 }
 
 function renderSide() {
-  const onTasks = state.side === 'tasks';
-  document.body.classList.toggle('side-tasks', onTasks);
-  els.notesView.hidden = onTasks;
-  els.tasksView.hidden = !onTasks;
-  for (const button of els.sideButtons) {
-    button.setAttribute('aria-pressed', String(button.dataset.side === state.side));
+  document.body.classList.toggle('side-tasks', state.side === 'tasks');
+  for (const toggle of els.sideButtons) {
+    toggle.setAttribute('aria-pressed', String(toggle.dataset.side === state.side));
   }
+  els.newItem.textContent = side().newLabel;
 }
 
 function renderSidebar() {
-  const items = [];
-  if (state.editingFolderId === NEW_FOLDER) items.push(folderNameInput(null));
+  const rows = [];
+  if (state.editingFolderId === NEW_FOLDER) rows.push(folderNameInput(null));
   for (const folder of [...state.folders].sort(byName)) {
-    items.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderItem(folder));
+    rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder));
   }
-  for (const note of notesIn(null)) items.push(noteItem(note));
-  els.tree.replaceChildren(...items);
+  for (const item of itemsIn(null)) rows.push(itemRow(item));
+  els.tree.replaceChildren(...rows);
 
-  const active = findFolder(state.activeFolderId);
-  els.newNoteTarget.textContent = active ? `New notes go into ${active.name}` : 'New notes go at the top level';
+  const active = findFolder(view().activeFolderId);
+  const what = `New ${side().plural}`;
+  els.newItemTarget.textContent = active ? `${what} go into ${active.name}` : `${what} go at the top level`;
 }
 
-function noteItem(note) {
+function itemRow(item) {
+  const title = side().title(item);
   const li = el('li');
-  const item = el('div', 'note-item');
-  const button = el('button', 'row note-row');
-  button.type = 'button';
-  if (note.id === state.currentNoteId) {
-    item.classList.add('is-current');
-    button.setAttribute('aria-current', 'true');
+  const row = el('div', 'sidebar-item');
+  const open = button('row', undefined, undefined, () => openItem(item.id));
+  if (item.id === view().currentId) {
+    row.classList.add('is-current');
+    open.setAttribute('aria-current', 'true');
   }
-  button.append(el('span', 'note-title', noteTitle(note)), el('span', 'note-date', formatDate(note.updatedAt)));
-  button.addEventListener('click', () => openNote(note.id));
+  open.append(el('span', 'item-title', title), el('span', 'item-date', formatDate(item.updatedAt)));
 
   const actions = el('span', 'item-actions');
-  const remove = el('button', 'icon-button danger', 'Delete');
-  remove.type = 'button';
-  remove.setAttribute('aria-label', `Delete note ${noteTitle(note)}`);
-  remove.addEventListener('click', () => deleteNote(note));
-  actions.append(remove);
+  actions.append(button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item)));
 
-  item.append(button, actions);
-  li.append(item);
+  row.append(open, actions);
+  li.append(row);
   return li;
 }
 
-function folderItem(folder) {
-  const isOpen = state.openFolderIds.has(folder.id);
+function folderRow(folder) {
+  const isOpen = view().openFolderIds.has(folder.id);
+  const items = itemsIn(folder.id);
   const li = el('li', 'folder');
   li.classList.toggle('is-open', isOpen);
 
   const row = el('div', 'folder-row');
-  row.classList.toggle('is-active', state.activeFolderId === folder.id);
+  row.classList.toggle('is-active', view().activeFolderId === folder.id);
 
-  const toggle = el('button', 'row folder-toggle');
-  toggle.type = 'button';
+  const toggle = button('row', undefined, undefined, () => toggleFolder(folder));
   toggle.setAttribute('aria-expanded', String(isOpen));
-  const notes = notesIn(folder.id);
-  toggle.append(el('span', 'chevron'), el('span', 'folder-name', folder.name), el('span', 'folder-count', String(notes.length)));
-  toggle.addEventListener('click', () => toggleFolder(folder));
+  toggle.append(el('span', 'chevron'), el('span', 'folder-name', folder.name), el('span', 'folder-count', String(items.length)));
 
   const actions = el('span', 'item-actions');
-  const rename = el('button', 'icon-button', 'Rename');
-  rename.type = 'button';
-  rename.setAttribute('aria-label', `Rename folder ${folder.name}`);
-  rename.addEventListener('click', () => startEditingFolder(folder.id));
-  const remove = el('button', 'icon-button danger', 'Delete');
-  remove.type = 'button';
-  remove.setAttribute('aria-label', `Delete folder ${folder.name}`);
-  remove.addEventListener('click', () => deleteFolder(folder));
-  actions.append(rename, remove);
+  actions.append(
+    button('icon-button', 'Rename', `Rename folder ${folder.name}`, () => startEditingFolder(folder.id)),
+    button('icon-button danger', 'Delete', `Delete folder ${folder.name}`, () => deleteFolder(folder))
+  );
 
   row.append(toggle, actions);
   li.append(row);
 
   if (isOpen) {
-    const list = el('ul', 'folder-notes');
-    if (notes.length === 0) list.append(el('li', 'empty-folder', 'No notes yet'));
-    for (const note of notes) list.append(noteItem(note));
+    const list = el('ul', 'folder-items');
+    if (items.length === 0) list.append(el('li', 'empty-folder', `No ${side().plural} yet`));
+    for (const item of items) list.append(itemRow(item));
     li.append(list);
   }
   return li;
@@ -518,52 +741,195 @@ function folderNameInput(folder) {
   return li;
 }
 
-function renderEditor() {
-  const note = currentNote();
-  els.editorPane.hidden = !note;
-  els.emptyState.hidden = Boolean(note);
-  if (!note) return;
-  if (joinNote(els.titleInput.value, els.editor.value) !== note.body) {
-    const { title, rest } = splitNote(note.body);
-    els.titleInput.value = title;
-    els.editor.value = rest;
-  }
+function renderMain() {
+  const item = currentItem();
+  els.itemPane.hidden = !item;
+  els.emptyState.hidden = Boolean(item);
+  els.emptyMessage.textContent = side().emptyMessage;
+  if (!item) return;
 
+  els.titleInput.placeholder = side().titlePlaceholder;
+  els.deleteItem.textContent = side().deleteLabel;
   const options = [new Option('Top level', '')];
   for (const folder of [...state.folders].sort(byName)) options.push(new Option(folder.name, folder.id));
-  els.noteFolder.replaceChildren(...options);
-  els.noteFolder.value = note.folderId || '';
+  els.itemFolder.replaceChildren(...options);
+  els.itemFolder.value = item.folderId || '';
+
+  const onNotes = state.side === 'notes';
+  els.editor.hidden = !onNotes;
+  els.taskPane.hidden = onNotes;
+  if (onNotes) {
+    if (joinNote(els.titleInput.value, els.editor.value) !== item.body) {
+      const { title, rest } = splitNote(item.body);
+      els.titleInput.value = title;
+      els.editor.value = rest;
+    }
+  } else {
+    if (els.titleInput.value !== item.title) els.titleInput.value = item.title;
+    renderTasks();
+  }
+}
+
+function renderTasks() {
+  const list = state.side === 'tasks' ? currentItem() : null;
+  if (!list) return;
+  const all = tasksIn(list.id);
+  const open = all.filter(task => !task.done);
+  const done = all.filter(task => task.done);
+
+  els.openTasks.replaceChildren(...open.map((task, i) => taskRow(task, i, open.length)));
+  els.completedHeader.hidden = done.length === 0;
+  els.completedCount.textContent = `Completed (${done.length})`;
+  els.completedToggle.textContent = list.showCompleted ? 'Hide' : 'Show';
+  els.doneTasks.hidden = !list.showCompleted;
+  els.doneTasks.replaceChildren(...(list.showCompleted ? done.map((task, i) => taskRow(task, i, done.length)) : []));
+}
+
+function taskRow(task, index, groupSize) {
+  const li = el('li', 'task');
+  li.dataset.taskId = task.id;
+  li.classList.toggle('is-done', task.done);
+
+  const handle = el('span', 'drag-handle', '⋮⋮');
+  handle.title = 'Drag to reorder';
+  handle.setAttribute('aria-hidden', 'true');
+  // Only the handle starts a drag, so text in the task can still be selected.
+  handle.addEventListener('mousedown', () => { li.draggable = true; });
+  handle.addEventListener('mouseup', () => { li.draggable = false; });
+
+  const check = el('input');
+  check.type = 'checkbox';
+  check.checked = task.done;
+  check.setAttribute('aria-label', task.done ? 'Mark as not done' : 'Mark as done');
+  check.addEventListener('change', () => setTaskDone(task, check.checked));
+
+  const text = el('input', 'task-text');
+  text.type = 'text';
+  text.value = task.text;
+  text.setAttribute('aria-label', 'Task');
+  text.addEventListener('input', () => {
+    task.text = text.value;
+    saveSoon(`task:${task.id}`, () => Storage.saveTask(task));
+    touchList(task.listId);
+  });
+  text.addEventListener('keydown', async event => {
+    if (event.key === 'Enter') {
+      // Enter saves this task and starts a new one right below it.
+      event.preventDefault();
+      if (text.value.trim() === '') return;
+      const list = currentItem();
+      const added = await addTask(list, '', task);
+      renderTasks();
+      focusTask(added.id);
+    } else if (event.key === 'Backspace' && text.value === '') {
+      // Backspace in an empty task removes it and moves up to the one above.
+      event.preventDefault();
+      const above = tasksIn(task.listId).filter(t => t.done === task.done)[index - 1];
+      await removeTaskQuietly(task);
+      renderTasks();
+      if (above) focusTask(above.id);
+      else els.addTask.focus();
+    }
+  });
+  text.addEventListener('blur', () => {
+    // A task left empty is removed. Only this row is taken off the page, so a
+    // click elsewhere still lands where it was aimed.
+    if (!text.isConnected || text.value.trim() !== '') return;
+    if (!state.tasks.includes(task)) return;
+    removeTaskQuietly(task);
+    li.remove();
+  });
+
+  const actions = el('span', 'item-actions');
+  const up = button('icon-button move-up', '↑', 'Move up', () => nudgeTask(task, -1));
+  const down = button('icon-button move-down', '↓', 'Move down', () => nudgeTask(task, 1));
+  up.style.visibility = index === 0 ? 'hidden' : '';
+  down.style.visibility = index === groupSize - 1 ? 'hidden' : '';
+  actions.append(up, down, button('icon-button danger', 'Delete', 'Delete task', () => deleteTask(task)));
+
+  li.addEventListener('dragstart', event => {
+    dragTaskId = task.id;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', task.text);
+    li.classList.add('is-dragging');
+  });
+  li.addEventListener('dragend', () => {
+    li.draggable = false;
+    dragTaskId = null;
+    li.classList.remove('is-dragging');
+    clearDropMarks();
+  });
+  li.addEventListener('dragover', event => {
+    const dragged = state.tasks.find(t => t.id === dragTaskId);
+    // Tasks can only be dragged within their own group (open or completed).
+    if (!dragged || dragged === task || dragged.done !== task.done) return;
+    event.preventDefault();
+    const box = li.getBoundingClientRect();
+    const after = event.clientY - box.top > box.height / 2;
+    clearDropMarks();
+    li.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  li.addEventListener('drop', event => {
+    const dragged = state.tasks.find(t => t.id === dragTaskId);
+    if (!dragged || dragged === task || dragged.done !== task.done) return;
+    event.preventDefault();
+    const after = li.classList.contains('drop-after');
+    clearDropMarks();
+    dropTask(dragged, task, after);
+  });
+
+  li.append(handle, check, text, actions);
+  return li;
+}
+
+function clearDropMarks() {
+  for (const marked of document.querySelectorAll('.drop-before, .drop-after')) {
+    marked.classList.remove('drop-before', 'drop-after');
+  }
 }
 
 function showLoadError() {
   const message = el('div', 'load-error');
   message.append(
-    el('p', null, "Your notes couldn't be loaded, so nothing has been changed."),
-    el('p', null, 'Try reloading the page. If this keeps happening, ask for help before adding new notes.')
+    el('p', null, "Your notes and tasks couldn't be loaded, so nothing has been changed."),
+    el('p', null, 'Try reloading the page. If this keeps happening, ask for help before adding anything new.')
   );
-  els.notesView.replaceChildren(message);
+  els.layout.replaceChildren(message);
 }
 
 // ---- Start up ----
 
 async function init() {
-  els.notesView = document.getElementById('notes-view');
-  els.tasksView = document.getElementById('tasks-view');
-  els.sideButtons = document.querySelectorAll('.side-toggle button');
-  els.tree = document.getElementById('tree');
-  els.newNoteTarget = document.getElementById('new-note-target');
-  els.editorPane = document.getElementById('editor-pane');
-  els.emptyState = document.getElementById('empty-state');
-  els.editor = document.getElementById('editor');
-  els.titleInput = document.getElementById('title-input');
-  els.noteFolder = document.getElementById('note-folder');
-  els.saveStatus = document.getElementById('save-status');
-  els.restoreFile = document.getElementById('restore-file');
+  const byId = id => document.getElementById(id);
+  Object.assign(els, {
+    layout: byId('layout'),
+    sideButtons: document.querySelectorAll('.side-toggle button'),
+    newItem: byId('new-item'),
+    newItemTarget: byId('new-item-target'),
+    tree: byId('tree'),
+    itemPane: byId('item-pane'),
+    itemFolder: byId('item-folder'),
+    saveStatus: byId('save-status'),
+    deleteItem: byId('delete-item'),
+    titleInput: byId('title-input'),
+    editor: byId('editor'),
+    taskPane: byId('task-pane'),
+    openTasks: byId('open-tasks'),
+    addTask: byId('add-task'),
+    completedHeader: byId('completed-header'),
+    completedCount: byId('completed-count'),
+    completedToggle: byId('completed-toggle'),
+    doneTasks: byId('done-tasks'),
+    emptyState: byId('empty-state'),
+    emptyMessage: byId('empty-message'),
+    restoreFile: byId('restore-file'),
+    toast: byId('toast'),
+    toastText: byId('toast-text'),
+  });
 
   try {
     const data = await Storage.loadAll();
-    state.folders = data.folders;
-    state.notes = data.notes;
+    Object.assign(state, data);
   } catch (err) {
     console.error(err);
     showLoadError();
@@ -571,37 +937,54 @@ async function init() {
   }
   applyPrefs(Storage.loadPrefs());
 
-  // Clear out notes that were left empty, except the one that's open.
-  for (const note of state.notes.filter(n => isEmpty(n) && n.id !== state.currentNoteId)) {
-    await removeNote(note.id);
+  // Clear out blank tasks, and notes and task lists that were left empty,
+  // except the open ones.
+  for (const task of state.tasks.filter(t => t.text.trim() === '')) {
+    state.tasks = state.tasks.filter(t => t !== task);
+    await runSave(() => Storage.deleteTask(task.id));
   }
+  const startSide = state.side;
+  for (const name of ['notes', 'tasks']) {
+    state.side = name;
+    for (const item of side().items().filter(i => isEmptyItem(i) && i.id !== view().currentId)) {
+      await removeItem(item);
+    }
+  }
+  state.side = startSide;
 
-  for (const button of els.sideButtons) {
-    button.addEventListener('click', () => setSide(button.dataset.side));
+  for (const toggle of els.sideButtons) {
+    toggle.addEventListener('click', () => setSide(toggle.dataset.side));
   }
-  document.getElementById('new-note').addEventListener('click', createNote);
-  document.getElementById('new-folder').addEventListener('click', () => startEditingFolder(NEW_FOLDER));
-  document.getElementById('delete-note').addEventListener('click', () => deleteNote(currentNote()));
-  document.getElementById('download-backup').addEventListener('click', downloadBackup);
-  document.getElementById('restore-backup').addEventListener('click', chooseBackupFile);
+  els.newItem.addEventListener('click', createItem);
+  byId('new-folder').addEventListener('click', () => startEditingFolder(NEW_FOLDER));
+  els.deleteItem.addEventListener('click', () => deleteItem(currentItem()));
+  els.itemFolder.addEventListener('change', () => moveCurrentItem(els.itemFolder.value || null));
+  byId('download-backup').addEventListener('click', downloadBackup);
+  byId('restore-backup').addEventListener('click', chooseBackupFile);
   els.restoreFile.addEventListener('change', () => {
     const file = els.restoreFile.files[0];
     els.restoreFile.value = '';
     if (file) restoreBackup(file);
   });
-  els.noteFolder.addEventListener('change', () => moveCurrentNote(els.noteFolder.value || null));
-  els.titleInput.addEventListener('input', handleTyping);
-  els.editor.addEventListener('input', handleTyping);
+  byId('toast-undo').addEventListener('click', undoDelete);
+  els.completedToggle.addEventListener('click', toggleCompleted);
 
-  // Enter in the title moves down to the body; Backspace in an empty body, or
-  // the up arrow at its very start, moves back up to the title.
+  els.titleInput.addEventListener('input', handleTitleInput);
+  els.editor.addEventListener('input', handleTitleInput);
+
+  // Enter in the title moves down to the note body, or to "Add a task".
   els.titleInput.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (state.side === 'notes') {
       els.editor.focus();
       els.editor.setSelectionRange(0, 0);
+    } else {
+      els.addTask.focus();
     }
   });
+  // Backspace in an empty note body, or the up arrow at its very start, moves
+  // back up to the title.
   els.editor.addEventListener('keydown', event => {
     const atStart = els.editor.selectionStart === 0 && els.editor.selectionEnd === 0;
     if ((event.key === 'Backspace' && els.editor.value === '') || (event.key === 'ArrowUp' && atStart)) {
@@ -609,11 +992,22 @@ async function init() {
       els.titleInput.focus();
     }
   });
+  // Enter in "Add a task" adds it and stays ready for the next one.
+  els.addTask.addEventListener('keydown', async event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const text = els.addTask.value.trim();
+    const list = currentItem();
+    if (!text || !list || state.side !== 'tasks') return;
+    els.addTask.value = '';
+    await addTask(list, text);
+    renderTasks();
+  });
 
   // Save right away if the page is closed or hidden mid-typing.
-  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('pagehide', flushSaves);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushSave();
+    if (document.visibilityState === 'hidden') flushSaves();
   });
 
   render();

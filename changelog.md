@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.3 (Oct 21, 2026)
+Tasks side added: task lists in shared folders, check off with strikethrough, hide completed, drag to reorder, undo a deleted task.
+
 ## 0.2.1 (Oct 21, 2026)
 Larger title line, brighter blue, delete notes from the sidebar, move notes between folders, clearer backup names.
 

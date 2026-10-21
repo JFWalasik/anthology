@@ -50,6 +50,8 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 
 - Top bar: app name on the left, the Notes/Tasks toggle on the right.
 - Notes side: sidebar on the left (280px) with New note and New folder, then folders (alphabetical), then top-level notes (most recently edited first); the backup links sit at the bottom. The note fills the rest, with a small bar above it for the folder menu, the "Saved" label and Delete note.
+- Tasks side: the same layout, with New task list in place of New note. Folders are shared, so each folder appears on both sides; its count and contents show only that side's items. A task list shows open tasks, then an "Add a task" line, then a "Completed (n) · Hide/Show" line and the completed tasks.
+- The accent color follows the side you're on: blue on Notes, green on Tasks.
 - Narrow screens currently stack the sidebar above the note; the real phone layout comes in 0.4.
 
 ## Interaction
@@ -58,10 +60,15 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - Rename and Delete appear when hovering over a folder; Delete appears when hovering over a note. Hover doesn't exist on phones, so 0.4 needs another way.
 - Deleting asks "Are you sure? … There is no way to retrieve this." Empty notes are discarded without asking.
 - Saving is automatic; a small "Saved" label confirms it.
+- Tasks: Enter in "Add a task" adds the task and stays ready for the next. Enter in a task starts a new one right below it. Backspace in an empty task removes it. Blank tasks are cleared when you leave them. Checking a task crosses it out and moves it below the open ones.
+- Reordering tasks: drag by the handle (⋮⋮) on the left, or use the ↑ and ↓ buttons that appear on hover. Tasks move within their own group, open or completed.
+- Deleting a single task doesn't ask first; instead a "Task deleted · Undo" message shows for 10 seconds. Deleting a task list asks first.
 
 ## Decision log
 
 Newest first.
+
+- **Oct 21, 2026.** Tasks side added (0.3). Folders shared by both sides. Accent switches to green on the Tasks side. Single tasks delete without asking, with a 10-second undo. Reordering by drag and by ↑ ↓ buttons.
 
 - **Oct 21, 2026.** Notes accent changed from muted ink-blue (#3B5B7A) to a brighter blue (#1B1BA6). A separate, larger title line added above the note body. Delete added on hover for notes; renaming a note is done by editing its title. Folder menu added above each note for moving it.
 - **Oct 21, 2026.** Paper palette chosen over Slate and Field notebook. Georgia for all text. Green #1AAB4B for the Tasks side. Folders listed above top-level notes so they stay easy to find.

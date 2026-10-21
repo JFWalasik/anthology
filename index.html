@@ -15,14 +15,14 @@
     </div>
   </header>
 
-  <div class="layout" id="notes-view">
+  <div class="layout" id="layout">
     <aside class="sidebar">
       <div class="sidebar-actions">
-        <button type="button" class="primary" id="new-note">New note</button>
+        <button type="button" class="primary" id="new-item">New note</button>
         <button type="button" id="new-folder">New folder</button>
       </div>
-      <p class="new-note-target" id="new-note-target"></p>
-      <nav class="tree-wrap" aria-label="Notes and folders">
+      <p class="new-item-target" id="new-item-target"></p>
+      <nav class="tree-wrap" aria-label="Folders and items">
         <ul class="tree" id="tree"></ul>
       </nav>
       <div class="sidebar-footer">
@@ -33,28 +33,44 @@
     </aside>
 
     <main class="main">
-      <section class="editor-pane" id="editor-pane" hidden>
+      <section class="item-pane" id="item-pane" hidden>
         <div class="editor-bar">
-          <span class="note-location">
-            <select id="note-folder" aria-label="Folder for this note"></select>
+          <span class="item-location">
+            <select id="item-folder" aria-label="Folder"></select>
           </span>
           <span class="save-status" id="save-status" aria-live="polite"></span>
-          <button type="button" class="quiet danger" id="delete-note">Delete note</button>
+          <button type="button" class="quiet danger" id="delete-item">Delete note</button>
         </div>
         <input type="text" class="title-input" id="title-input" aria-label="Title"
           placeholder="Title" autocomplete="off">
+
         <textarea class="editor" id="editor" aria-label="Note text"
           placeholder="Start writing."></textarea>
+
+        <div class="task-pane" id="task-pane" hidden>
+          <ul class="tasks" id="open-tasks"></ul>
+          <div class="add-task-row">
+            <span class="add-task-mark" aria-hidden="true">+</span>
+            <input type="text" class="add-task" id="add-task" aria-label="Add a task"
+              placeholder="Add a task" autocomplete="off">
+          </div>
+          <div class="completed-header" id="completed-header" hidden>
+            <span id="completed-count"></span>
+            <button type="button" class="link" id="completed-toggle"></button>
+          </div>
+          <ul class="tasks" id="done-tasks"></ul>
+        </div>
       </section>
+
       <section class="empty-state" id="empty-state" hidden>
-        <p>Choose a note, or start a new one.</p>
+        <p id="empty-message"></p>
       </section>
     </main>
   </div>
 
-  <div class="tasks-view" id="tasks-view" hidden>
-    <p class="tasks-label">Tasks</p>
-    <p>Task lists are coming in version 0.3.</p>
+  <div class="toast" id="toast" role="status" hidden>
+    <span id="toast-text"></span>
+    <button type="button" class="link" id="toast-undo">Undo</button>
   </div>
 
   <script src="storage.js"></script>

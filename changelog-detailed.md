@@ -1,5 +1,32 @@
 # Changelog (detailed)
 
+## 0.3 (Oct 21, 2026)
+
+Added
+- Task lists, at the top level or inside folders, listed most recently changed first, each with a larger title line
+- Enter in "Add a task" adds a task and stays ready for the next; Enter in a task starts a new one below it; Backspace in an empty task removes it
+- Check off a task to cross it out and move it below the open tasks; hide or show completed tasks, remembered per list
+- Reorder by dragging the ⋮⋮ handle, or with ↑ and ↓ buttons on hover
+- Deleting a task shows "Task deleted · Undo" for 10 seconds
+- Moving a task list between folders, and deleting a task list with a warning
+- Backups now include task lists and tasks; backups from 0.2 still restore
+
+Changed
+- Folders are shared by Notes and Tasks; each side shows only its own items in them, and deleting a folder warns about both
+- The accent color follows the side: blue for Notes, green for Tasks
+- The app remembers the open item, folder and side separately for Notes and Tasks
+- Backup names now include the number of task lists too
+
+Why
+- Shared folders keep a topic together; showing a folder on only one side can be added later (now on the enhancements list), while merging separate folders would be harder
+- Single tasks delete without a warning so quick list editing isn't interrupted; the undo covers mistakes until the recently deleted folder arrives in 0.6
+
+Notes for later
+- Dragging works with a mouse or trackpad; touch dragging comes with the phone layout in 0.4
+- Tasks move only within their own group (open or completed)
+- Undo covers only the most recent deleted task, and only while the app is open
+- Plan updated to version 0.10: the folder decision now says shared, a "show a folder on only one side" enhancement was added, and 0.6's recently deleted folder now includes single tasks
+
 ## 0.2.1 (Oct 21, 2026)
 
 Added

@@ -4,25 +4,37 @@
 // one that talks to Supabase, and the rest of the app shouldn't need to change.
 // The data functions return Promises (results that arrive later), because a
 // database is never instant; with browser storage they finish right away.
+//
+// The data has four kinds of records:
+// - folders, shared by both sides: { id, name, parentId, createdAt }
+// - notes: { id, folderId, body, createdAt, updatedAt }
+// - task lists: { id, folderId, title, showCompleted, createdAt, updatedAt }
+// - tasks: { id, listId, text, done, position, createdAt, completedAt }
 
 const Storage = (() => {
   const DATA_KEY = 'anthology.data';
   const PREFS_KEY = 'anthology.prefs';
   const BACKUP_FORMAT = 'anthology-backup';
-  const BACKUP_VERSION = 1;
+  const BACKUP_VERSION = 2;
 
   function readData() {
     const raw = localStorage.getItem(DATA_KEY);
-    if (!raw) return { folders: [], notes: [] };
-    const parsed = JSON.parse(raw);
-    return { folders: parsed.folders || [], notes: parsed.notes || [] };
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      folders: parsed.folders || [],
+      notes: parsed.notes || [],
+      taskLists: parsed.taskLists || [],
+      tasks: parsed.tasks || [],
+    };
   }
 
   function writeData(data) {
     localStorage.setItem(DATA_KEY, JSON.stringify({
-      version: 1,
+      version: 2,
       folders: data.folders,
       notes: data.notes,
+      taskLists: data.taskLists,
+      tasks: data.tasks,
     }));
   }
 
@@ -32,16 +44,22 @@ const Storage = (() => {
     else list[index] = { ...item };
   }
 
-  // ---- Notes and folders ----
+  async function saveRecords(kind, records) {
+    const data = readData();
+    for (const record of records) upsert(data[kind], record);
+    writeData(data);
+  }
+
+  // ---- Reading ----
 
   async function loadAll() {
     return readData();
   }
 
+  // ---- Notes ----
+
   async function saveNote(note) {
-    const data = readData();
-    upsert(data.notes, note);
-    writeData(data);
+    await saveRecords('notes', [note]);
   }
 
   async function deleteNote(id) {
@@ -50,17 +68,49 @@ const Storage = (() => {
     writeData(data);
   }
 
-  async function saveFolder(folder) {
+  // ---- Task lists and tasks ----
+
+  async function saveTaskList(list) {
+    await saveRecords('taskLists', [list]);
+  }
+
+  // Deleting a task list also deletes its tasks.
+  async function deleteTaskList(id) {
     const data = readData();
-    upsert(data.folders, folder);
+    data.taskLists = data.taskLists.filter(list => list.id !== id);
+    data.tasks = data.tasks.filter(task => task.listId !== id);
     writeData(data);
   }
 
-  // Deleting a folder also deletes the notes in it.
+  async function saveTask(task) {
+    await saveRecords('tasks', [task]);
+  }
+
+  // Saves several tasks at once, for example after reordering.
+  async function saveTasks(tasks) {
+    await saveRecords('tasks', tasks);
+  }
+
+  async function deleteTask(id) {
+    const data = readData();
+    data.tasks = data.tasks.filter(task => task.id !== id);
+    writeData(data);
+  }
+
+  // ---- Folders ----
+
+  async function saveFolder(folder) {
+    await saveRecords('folders', [folder]);
+  }
+
+  // Deleting a folder also deletes the notes and task lists in it.
   async function deleteFolder(id) {
     const data = readData();
+    const listIds = new Set(data.taskLists.filter(list => list.folderId === id).map(list => list.id));
     data.folders = data.folders.filter(folder => folder.id !== id);
     data.notes = data.notes.filter(note => note.folderId !== id);
+    data.taskLists = data.taskLists.filter(list => !listIds.has(list.id));
+    data.tasks = data.tasks.filter(task => !listIds.has(task.listId));
     writeData(data);
   }
 
@@ -77,11 +127,13 @@ const Storage = (() => {
       exportedAt: new Date().toISOString(),
       folders: data.folders,
       notes: data.notes,
+      taskLists: data.taskLists,
+      tasks: data.tasks,
     }, null, 2);
   }
 
-  // Reads a backup file's text and returns clean { folders, notes }, or throws
-  // an Error with a plain-language message.
+  // Reads a backup file's text and returns clean data, or throws an Error with
+  // a plain-language message. Backups from 0.2 have no tasks, which is fine.
   function parseBackup(text) {
     let parsed;
     try {
@@ -101,18 +153,21 @@ const Storage = (() => {
     return cleanData(parsed);
   }
 
-  // Keeps only well-formed folders and notes, so a damaged file can't break the app.
+  // Keeps only well-formed records, so a damaged file can't break the app.
   function cleanData(input) {
     const time = value => (Number.isFinite(value) ? value : Date.now());
+    const isRecord = r => r && typeof r.id === 'string';
+
     const folders = input.folders
-      .filter(f => f && typeof f.id === 'string' && typeof f.name === 'string')
+      .filter(f => isRecord(f) && typeof f.name === 'string')
       .map(f => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, createdAt: time(f.createdAt) }));
     const folderIds = new Set(folders.map(f => f.id));
     for (const folder of folders) {
       if (!folderIds.has(folder.parentId)) folder.parentId = null;
     }
+
     const notes = input.notes
-      .filter(n => n && typeof n.id === 'string' && typeof n.body === 'string')
+      .filter(n => isRecord(n) && typeof n.body === 'string')
       .map(n => ({
         id: n.id,
         folderId: folderIds.has(n.folderId) ? n.folderId : null,
@@ -120,7 +175,32 @@ const Storage = (() => {
         createdAt: time(n.createdAt),
         updatedAt: time(n.updatedAt),
       }));
-    return { folders, notes };
+
+    const taskLists = (Array.isArray(input.taskLists) ? input.taskLists : [])
+      .filter(isRecord)
+      .map(l => ({
+        id: l.id,
+        folderId: folderIds.has(l.folderId) ? l.folderId : null,
+        title: typeof l.title === 'string' ? l.title : '',
+        showCompleted: l.showCompleted !== false,
+        createdAt: time(l.createdAt),
+        updatedAt: time(l.updatedAt),
+      }));
+    const listIds = new Set(taskLists.map(l => l.id));
+
+    const tasks = (Array.isArray(input.tasks) ? input.tasks : [])
+      .filter(t => isRecord(t) && listIds.has(t.listId) && typeof t.text === 'string')
+      .map((t, index) => ({
+        id: t.id,
+        listId: t.listId,
+        text: t.text,
+        done: t.done === true,
+        position: Number.isFinite(t.position) ? t.position : index,
+        createdAt: time(t.createdAt),
+        completedAt: Number.isFinite(t.completedAt) ? t.completedAt : null,
+      }));
+
+    return { folders, notes, taskLists, tasks };
   }
 
   // ---- Preferences ----
@@ -144,7 +224,7 @@ const Storage = (() => {
   }
 
   return {
-    loadAll, saveNote, deleteNote, saveFolder, deleteFolder, replaceAll,
-    makeBackup, parseBackup, loadPrefs, savePrefs,
+    loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
+    saveFolder, deleteFolder, replaceAll, makeBackup, parseBackup, loadPrefs, savePrefs,
   };
 })();
