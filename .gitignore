@@ -1,0 +1,9 @@
+# Mac system files
+.DS_Store
+
+# Environment files, which can hold keys and passwords
+.env
+.env.*
+
+# Claude Code personal settings
+.claude/settings.local.json
