@@ -15,6 +15,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 ## How the app is built
 
 - Plain HTML, CSS and JavaScript, with no build step and as few dependencies as practical. The app should run by opening its files in a browser.
+- Look and feel decisions (colors, fonts, layout) are in docs/design.md. Check it before changing how the app looks, and record new decisions there.
 - Keep the code that saves and loads data in one place, so the storage can change (browser storage now, Supabase from version 0.5) without rewriting the rest of the app.
 - Notes are plain text with light Markdown-style formatting for now. Rich text (a formatting toolbar) is planned soon, likely using a well-established editor library that needs no build step, so it helps to keep the note-editing code easy to swap out.
 - Data should always be exportable in common formats: Markdown for both notes and tasks (tasks as checklists), with a spreadsheet-style file for tasks as a possible later addition.
