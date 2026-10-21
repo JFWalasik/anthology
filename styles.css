@@ -209,9 +209,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border: 0;
   border-radius: 6px;
   background: transparent;
-  font-size: 18px;
+  font-size: 22px;
+  font-weight: bold;
   line-height: 1;
-  color: var(--ink-muted);
+  color: var(--ink-soft);
 }
 
 .folder-input {

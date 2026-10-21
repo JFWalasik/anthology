@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.4.1 (Oct 21, 2026)
+On phones, the back gesture returns to the list; the ⋯ button is easier to see.
+
 ## 0.4 (Oct 21, 2026)
 Live on GitHub Pages, with a phone layout, an app icon for the home screen, and offline opening.
 

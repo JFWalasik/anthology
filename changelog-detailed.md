@@ -1,5 +1,19 @@
 # Changelog (detailed)
 
+## 0.4.1 (Oct 21, 2026)
+
+Fixed
+- On phones, the back gesture (and Android's back button) now goes from an open note or task list back to the list, instead of leaving the app
+
+Changed
+- The ⋯ button on touch screens is larger and darker, so it's easier to spot
+
+Why
+- Found while trying 0.4 on an iPhone; the back gesture issue would have been most noticeable on Android
+
+Notes for later
+- Tested at phone size in the built-in browser and on an iPhone; not yet tried on a real Android phone
+
 ## 0.4 (Oct 21, 2026)
 
 Added

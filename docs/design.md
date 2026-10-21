@@ -52,7 +52,7 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - Notes side: sidebar on the left (280px) with New note and New folder, then folders (alphabetical), then top-level notes (most recently edited first); the backup links sit at the bottom. The note fills the rest, with a small bar above it for the folder menu, the "Saved" label and Delete note.
 - Tasks side: the same layout, with New task list in place of New note. Folders are shared, so each folder appears on both sides; its count and contents show only that side's items. A task list shows open tasks, then an "Add a task" line, then a "Completed (n) · Hide/Show" line and the completed tasks.
 - The accent color follows the side you're on: blue on Notes, green on Tasks.
-- Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
+- Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The phone's own back gesture does the same. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
 
 ## App icon
 

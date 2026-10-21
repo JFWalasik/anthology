@@ -286,6 +286,35 @@ async function leaveCurrentItem() {
   if (isEmptyItem(item)) await removeItem(item);
 }
 
+// ---- Phone screens and the back gesture ----
+// On phones, opening an item adds an entry to the browser's history, so the
+// back gesture (or Android's back button) returns to the list instead of
+// leaving the app.
+
+const phoneLayout = window.matchMedia('(max-width: 700px)');
+let ignoreNextPop = false;
+
+function syncHistory() {
+  if (!phoneLayout.matches) return;
+  const onItem = Boolean(currentItem());
+  const inHistory = history.state && history.state.anthology === 'item';
+  if (onItem && !inHistory) {
+    history.pushState({ anthology: 'item' }, '');
+  } else if (!onItem && inHistory) {
+    // The item was closed some other way (Back button, delete): drop its entry.
+    ignoreNextPop = true;
+    history.back();
+  }
+}
+
+function handlePopState() {
+  if (ignoreNextPop) {
+    ignoreNextPop = false;
+    return;
+  }
+  if (currentItem()) goBack();
+}
+
 // On phones, goes from an open item back to the list of folders and items.
 async function goBack() {
   await leaveCurrentItem();
@@ -730,6 +759,7 @@ function render() {
   renderSide();
   renderSidebar();
   renderMain();
+  syncHistory();
 }
 
 function renderSide() {
@@ -1042,6 +1072,7 @@ async function init() {
   });
   byId('toast-undo').addEventListener('click', undoDelete);
   byId('back-button').addEventListener('click', goBack);
+  window.addEventListener('popstate', handlePopState);
 
   // The ⋯ menu closes on a tap elsewhere, Escape, scrolling or resizing.
   document.addEventListener('pointerdown', event => {
