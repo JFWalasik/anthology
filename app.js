@@ -56,7 +56,7 @@ const state = {
 const els = {};
 const pendingSaves = new Map();
 let problemReported = false;
-let dragTaskId = null;
+let drag = null;            // the task being dragged, while a drag is under way
 let lastDeletedTask = null;
 let undoTimer = null;
 
@@ -286,6 +286,14 @@ async function leaveCurrentItem() {
   if (isEmptyItem(item)) await removeItem(item);
 }
 
+// On phones, goes from an open item back to the list of folders and items.
+async function goBack() {
+  await leaveCurrentItem();
+  view().currentId = null;
+  savePrefs();
+  render();
+}
+
 async function openItem(id) {
   if (id === view().currentId) return;
   await leaveCurrentItem();
@@ -434,6 +442,94 @@ async function toggleCompleted() {
   list.showCompleted = !list.showCompleted;
   await runSave(() => Storage.saveTaskList(list));
   renderTasks();
+}
+
+// ---- Dragging tasks ----
+// Works the same with a mouse, trackpad or finger: press on the ⋮⋮ handle and
+// move. Tasks can only be dragged within their own group (open or completed).
+
+function startDrag(event, task, li) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  closeMenu();
+  drag = { task, li, target: null, after: false, pointerId: event.pointerId };
+  li.classList.add('is-dragging');
+  event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function moveDrag(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  clearDropMarks();
+  drag.target = null;
+  const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('.task');
+  if (under && under !== drag.li && under.parentElement === drag.li.parentElement) {
+    const box = under.getBoundingClientRect();
+    drag.after = event.clientY - box.top > box.height / 2;
+    drag.target = under;
+    under.classList.add(drag.after ? 'drop-after' : 'drop-before');
+  }
+  // Scroll the list when dragging near its top or bottom edge.
+  const pane = els.taskPane.getBoundingClientRect();
+  if (event.clientY < pane.top + 48) els.taskPane.scrollTop -= 12;
+  else if (event.clientY > pane.bottom - 48) els.taskPane.scrollTop += 12;
+}
+
+function endDrag(event, cancelled) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const { task, li, target, after } = drag;
+  drag = null;
+  li.classList.remove('is-dragging');
+  clearDropMarks();
+  if (cancelled || !target) return;
+  const targetTask = state.tasks.find(t => t.id === target.dataset.taskId);
+  if (targetTask) dropTask(task, targetTask, after);
+}
+
+function clearDropMarks() {
+  for (const marked of document.querySelectorAll('.drop-before, .drop-after')) {
+    marked.classList.remove('drop-before', 'drop-after');
+  }
+}
+
+// ---- The ⋯ menu ----
+// Touch screens have no hover, so rows show a ⋯ button that opens this menu
+// with the same choices the hover buttons offer.
+
+function moreButton(label, choices) {
+  return button('more-button', '⋯', label, event => {
+    event.stopPropagation();
+    openMenu(event.currentTarget, choices);
+  });
+}
+
+function openMenu(opener, choices) {
+  closeMenu();
+  const entries = choices.map(choice => {
+    const entry = button(choice.danger ? 'danger' : '', choice.label, undefined, () => {
+      closeMenu();
+      choice.run();
+    });
+    entry.setAttribute('role', 'menuitem');
+    return entry;
+  });
+  els.menu.replaceChildren(...entries);
+  els.menu.hidden = false;
+
+  // Place it under the ⋯ button, kept inside the screen.
+  const at = opener.getBoundingClientRect();
+  const size = els.menu.getBoundingClientRect();
+  const left = Math.max(8, Math.min(at.right - size.width, innerWidth - size.width - 8));
+  let top = at.bottom + 4;
+  if (top + size.height > innerHeight - 8) top = Math.max(8, at.top - size.height - 4);
+  els.menu.style.left = `${left}px`;
+  els.menu.style.top = `${top}px`;
+  entries[0]?.focus();
+}
+
+function closeMenu() {
+  if (els.menu.hidden) return;
+  els.menu.hidden = true;
+  els.menu.replaceChildren();
 }
 
 function focusTask(taskId, atEnd = true) {
@@ -671,8 +767,9 @@ function itemRow(item) {
 
   const actions = el('span', 'item-actions');
   actions.append(button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item)));
+  const more = moreButton(`More for ${title}`, [{ label: 'Delete', danger: true, run: () => deleteItem(item) }]);
 
-  row.append(open, actions);
+  row.append(open, actions, more);
   li.append(row);
   return li;
 }
@@ -695,8 +792,12 @@ function folderRow(folder) {
     button('icon-button', 'Rename', `Rename folder ${folder.name}`, () => startEditingFolder(folder.id)),
     button('icon-button danger', 'Delete', `Delete folder ${folder.name}`, () => deleteFolder(folder))
   );
+  const more = moreButton(`More for folder ${folder.name}`, [
+    { label: 'Rename', run: () => startEditingFolder(folder.id) },
+    { label: 'Delete', danger: true, run: () => deleteFolder(folder) },
+  ]);
 
-  row.append(toggle, actions);
+  row.append(toggle, actions, more);
   li.append(row);
 
   if (isOpen) {
@@ -743,6 +844,7 @@ function folderNameInput(folder) {
 
 function renderMain() {
   const item = currentItem();
+  document.body.classList.toggle('has-item', Boolean(item)); // phones show the item screen
   els.itemPane.hidden = !item;
   els.emptyState.hidden = Boolean(item);
   els.emptyMessage.textContent = side().emptyMessage;
@@ -794,8 +896,10 @@ function taskRow(task, index, groupSize) {
   handle.title = 'Drag to reorder';
   handle.setAttribute('aria-hidden', 'true');
   // Only the handle starts a drag, so text in the task can still be selected.
-  handle.addEventListener('mousedown', () => { li.draggable = true; });
-  handle.addEventListener('mouseup', () => { li.draggable = false; });
+  handle.addEventListener('pointerdown', event => startDrag(event, task, li));
+  handle.addEventListener('pointermove', moveDrag);
+  handle.addEventListener('pointerup', event => endDrag(event, false));
+  handle.addEventListener('pointercancel', event => endDrag(event, true));
 
   const check = el('input');
   check.type = 'checkbox';
@@ -847,45 +951,14 @@ function taskRow(task, index, groupSize) {
   down.style.visibility = index === groupSize - 1 ? 'hidden' : '';
   actions.append(up, down, button('icon-button danger', 'Delete', 'Delete task', () => deleteTask(task)));
 
-  li.addEventListener('dragstart', event => {
-    dragTaskId = task.id;
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', task.text);
-    li.classList.add('is-dragging');
-  });
-  li.addEventListener('dragend', () => {
-    li.draggable = false;
-    dragTaskId = null;
-    li.classList.remove('is-dragging');
-    clearDropMarks();
-  });
-  li.addEventListener('dragover', event => {
-    const dragged = state.tasks.find(t => t.id === dragTaskId);
-    // Tasks can only be dragged within their own group (open or completed).
-    if (!dragged || dragged === task || dragged.done !== task.done) return;
-    event.preventDefault();
-    const box = li.getBoundingClientRect();
-    const after = event.clientY - box.top > box.height / 2;
-    clearDropMarks();
-    li.classList.add(after ? 'drop-after' : 'drop-before');
-  });
-  li.addEventListener('drop', event => {
-    const dragged = state.tasks.find(t => t.id === dragTaskId);
-    if (!dragged || dragged === task || dragged.done !== task.done) return;
-    event.preventDefault();
-    const after = li.classList.contains('drop-after');
-    clearDropMarks();
-    dropTask(dragged, task, after);
-  });
+  const choices = [];
+  if (index > 0) choices.push({ label: 'Move up', run: () => nudgeTask(task, -1) });
+  if (index < groupSize - 1) choices.push({ label: 'Move down', run: () => nudgeTask(task, 1) });
+  choices.push({ label: 'Delete', danger: true, run: () => deleteTask(task) });
+  const more = moreButton('More for this task', choices);
 
-  li.append(handle, check, text, actions);
+  li.append(handle, check, text, actions, more);
   return li;
-}
-
-function clearDropMarks() {
-  for (const marked of document.querySelectorAll('.drop-before, .drop-after')) {
-    marked.classList.remove('drop-before', 'drop-after');
-  }
 }
 
 function showLoadError() {
@@ -925,6 +998,7 @@ async function init() {
     restoreFile: byId('restore-file'),
     toast: byId('toast'),
     toastText: byId('toast-text'),
+    menu: byId('menu'),
   });
 
   try {
@@ -967,6 +1041,17 @@ async function init() {
     if (file) restoreBackup(file);
   });
   byId('toast-undo').addEventListener('click', undoDelete);
+  byId('back-button').addEventListener('click', goBack);
+
+  // The ⋯ menu closes on a tap elsewhere, Escape, scrolling or resizing.
+  document.addEventListener('pointerdown', event => {
+    if (!els.menu.contains(event.target)) closeMenu();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeMenu();
+  });
+  document.addEventListener('scroll', closeMenu, true);
+  window.addEventListener('resize', closeMenu);
   els.completedToggle.addEventListener('click', toggleCompleted);
 
   els.titleInput.addEventListener('input', handleTitleInput);
@@ -1011,6 +1096,12 @@ async function init() {
   });
 
   render();
+
+  // The offline helper (sw.js) only works when the app is served from a web
+  // address, not when index.html is opened as a file.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.error('Offline helper not set up', err));
+  }
 }
 
 init();

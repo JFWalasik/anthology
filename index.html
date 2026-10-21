@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Anthology</title>
+  <meta name="theme-color" content="#FBF8F3">
+  <!-- Name and icon used when the app is added to a phone's home screen -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Anthology">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/favicon-32.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -35,6 +44,7 @@
     <main class="main">
       <section class="item-pane" id="item-pane" hidden>
         <div class="editor-bar">
+          <button type="button" class="quiet back-button" id="back-button">‹ Back</button>
           <span class="item-location">
             <select id="item-folder" aria-label="Folder"></select>
           </span>
@@ -67,6 +77,8 @@
       </section>
     </main>
   </div>
+
+  <div class="menu" id="menu" role="menu" hidden></div>
 
   <div class="toast" id="toast" role="status" hidden>
     <span id="toast-text"></span>

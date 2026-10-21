@@ -52,21 +52,27 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - Notes side: sidebar on the left (280px) with New note and New folder, then folders (alphabetical), then top-level notes (most recently edited first); the backup links sit at the bottom. The note fills the rest, with a small bar above it for the folder menu, the "Saved" label and Delete note.
 - Tasks side: the same layout, with New task list in place of New note. Folders are shared, so each folder appears on both sides; its count and contents show only that side's items. A task list shows open tasks, then an "Add a task" line, then a "Completed (n) · Hide/Show" line and the completed tasks.
 - The accent color follows the side you're on: blue on Notes, green on Tasks.
-- Narrow screens currently stack the sidebar above the note; the real phone layout comes in 0.4.
+- Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
+
+## App icon
+
+A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones round the corners themselves. The images are in icons/ and were made from Georgia with a small script; to change the icon, replace those images.
 
 ## Interaction
 
 - Each note has a title line and a body, saved as one piece of text with the title as the first line. Enter in the title moves to the body.
-- Rename and Delete appear when hovering over a folder; Delete appears when hovering over a note. Hover doesn't exist on phones, so 0.4 needs another way.
+- With a mouse, Rename and Delete appear when hovering over a folder, and Delete when hovering over a note or task list. Touch screens have no hover, so each row shows a "⋯" button instead, which opens a short menu with the same choices.
 - Deleting asks "Are you sure? … There is no way to retrieve this." Empty notes are discarded without asking.
 - Saving is automatic; a small "Saved" label confirms it.
 - Tasks: Enter in "Add a task" adds the task and stays ready for the next. Enter in a task starts a new one right below it. Backspace in an empty task removes it. Blank tasks are cleared when you leave them. Checking a task crosses it out and moves it below the open ones.
-- Reordering tasks: drag by the handle (⋮⋮) on the left, or use the ↑ and ↓ buttons that appear on hover. Tasks move within their own group, open or completed.
+- Reordering tasks: drag by the handle (⋮⋮) on the left, with a mouse or a finger, or use ↑ and ↓ (on hover with a mouse, in the "⋯" menu on touch screens). The handle is always visible on touch screens. Tasks move within their own group, open or completed.
 - Deleting a single task doesn't ask first; instead a "Task deleted · Undo" message shows for 10 seconds. Deleting a task list asks first.
 
 ## Decision log
 
 Newest first.
+
+- **Oct 21, 2026.** Phone layout (0.4): two screens with a Back button, rather than stacking the sidebar above the item. "⋯" menus on touch screens, rather than swipe or press-and-hold, because they're easier to discover. App icon: white Georgia "A" on the Notes blue.
 
 - **Oct 21, 2026.** Tasks side added (0.3). Folders shared by both sides. Accent switches to green on the Tasks side. Single tasks delete without asking, with a 10-second undo. Reordering by drag and by ↑ ↓ buttons.
 

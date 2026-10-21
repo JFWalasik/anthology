@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.4 (Oct 21, 2026)
+Live on GitHub Pages, with a phone layout, an app icon for the home screen, and offline opening.
+
 ## 0.3 (Oct 21, 2026)
 Tasks side added: task lists in shared folders, check off with strikethrough, hide completed, drag to reorder, undo a deleted task.
 

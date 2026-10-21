@@ -1,5 +1,28 @@
 # Changelog (detailed)
 
+## 0.4 (Oct 21, 2026)
+
+Added
+- Hosting on GitHub Pages at https://jfwalasik.github.io/anthology/, published from the main version
+- App icon (white Georgia "A" on the Notes blue) and home screen settings, so "Add to Home Screen" opens it full-screen like an app
+- Offline helper (sw.js): keeps a copy of the app's files so the app opens without a connection; when online it always fetches the latest files first
+- Phone layout: two screens (list, then the open item with a "‹ Back" button), larger tap targets, 16px minimum in typing fields, space kept clear for the notch and home bar
+- "⋯" menus on touch screens, replacing the hover buttons there: Rename and Delete for folders, Delete for notes and task lists, Move up, Move down and Delete for tasks
+- .nojekyll file, so GitHub Pages serves the files as they are
+
+Changed
+- Dragging tasks rewritten to work the same with a mouse, trackpad or finger; the drag handle is always visible on touch screens
+- Hover effects now only apply on devices with a mouse, since phones can show them after a tap
+
+Why
+- Two screens suit a narrow phone better than squeezing the sidebar above the item
+- "⋯" menus are easier to discover than swipe or press-and-hold
+
+Notes for later
+- Each browser and device still keeps its own notes until sync arrives in 0.5
+- Not yet tried on a real phone; expect a 0.4.1 with adjustments
+- If the app seems not to update on a phone, closing and reopening it should fetch the latest version
+
 ## 0.3 (Oct 21, 2026)
 
 Added
