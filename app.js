@@ -7,6 +7,8 @@
 const SAVE_DELAY_MS = 500;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
 const NEW_FOLDER = 'new';
+const BACKUP_PICKER_ID = 'anthology-backups';
+const BACKUP_TYPES = [{ description: 'Anthology backup', accept: { 'application/json': ['.json'] } }];
 
 const state = {
   folders: [],
@@ -42,6 +44,18 @@ function noteTitle(note) {
   return firstLine.replace(/^#+\s*/, '').trim() || 'New note';
 }
 
+// A note is stored as one piece of text. On screen, its first line is shown in
+// the larger title field and the rest in the body.
+function splitNote(body) {
+  const lineBreak = body.indexOf('\n');
+  if (lineBreak === -1) return { title: body, rest: '' };
+  return { title: body.slice(0, lineBreak), rest: body.slice(lineBreak + 1) };
+}
+
+function joinNote(title, rest) {
+  return rest === '' ? title : `${title}\n${rest}`;
+}
+
 function formatDate(ms) {
   const date = new Date(ms);
   const now = new Date();
@@ -53,10 +67,12 @@ function formatDate(ms) {
   return date.toLocaleDateString([], options);
 }
 
-function dateStamp() {
+// For example anthology-backup-2026-10-21-1435-12-notes.json
+function backupFileName(noteCount) {
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  return `anthology-backup-${stamp}-${noteCount}-${noteCount === 1 ? 'note' : 'notes'}.json`;
 }
 
 const byRecent = (a, b) => b.updatedAt - a.updatedAt;
@@ -180,16 +196,34 @@ async function createNote() {
   setStatus('');
   savePrefs();
   render();
-  els.editor.focus();
+  els.titleInput.focus();
 }
 
-async function deleteCurrentNote() {
-  const note = currentNote();
+async function deleteNote(note) {
   if (!note) return;
   if (!isEmpty(note) && !confirm(`Are you sure you want to delete "${noteTitle(note)}"? ${NO_RETRIEVE}`)) return;
-  cancelPendingSave();
+  if (note.id === state.currentNoteId) {
+    cancelPendingSave();
+    state.currentNoteId = null;
+  }
   await removeNote(note.id);
-  state.currentNoteId = null;
+  savePrefs();
+  render();
+}
+
+// Moving a note doesn't count as editing it, so its date stays the same.
+async function moveCurrentNote(folderId) {
+  const note = currentNote();
+  if (!note || note.folderId === folderId) return;
+  await flushSave();
+  note.folderId = folderId;
+  if (folderId) state.openFolderIds.add(folderId);
+  state.activeFolderId = folderId;
+  try {
+    await Storage.saveNote(note);
+  } catch (err) {
+    reportProblem(err);
+  }
   savePrefs();
   render();
 }
@@ -197,7 +231,7 @@ async function deleteCurrentNote() {
 function handleTyping() {
   const note = currentNote();
   if (!note) return;
-  note.body = els.editor.value;
+  note.body = joinNote(els.titleInput.value, els.editor.value);
   note.updatedAt = Date.now();
   setStatus('');
   scheduleSave(note.id);
@@ -276,15 +310,45 @@ async function downloadBackup() {
     alert("The backup couldn't be made because your notes couldn't be read.");
     return;
   }
-  const blob = new Blob([Storage.makeBackup(data)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
+  const text = Storage.makeBackup(data);
+  const name = backupFileName(data.notes.length);
+
+  // Chrome and Edge can show a Save window, so you choose the folder; the
+  // window remembers the last folder used. Other browsers use the downloads folder.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({ id: BACKUP_PICKER_ID, suggestedName: name, types: BACKUP_TYPES });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // the Save window was cancelled
+      console.error('Save window failed, downloading instead', err);
+    }
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const link = el('a');
   link.href = url;
-  link.download = `anthology-backup-${dateStamp()}.json`;
+  link.download = name;
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function chooseBackupFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({ id: BACKUP_PICKER_ID, types: BACKUP_TYPES });
+      restoreBackup(await handle.getFile());
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.error('Open window failed, using the file chooser instead', err);
+    }
+  }
+  els.restoreFile.click();
 }
 
 async function restoreBackup(file) {
@@ -361,15 +425,25 @@ function renderSidebar() {
 
 function noteItem(note) {
   const li = el('li');
+  const item = el('div', 'note-item');
   const button = el('button', 'row note-row');
   button.type = 'button';
   if (note.id === state.currentNoteId) {
-    button.classList.add('is-current');
+    item.classList.add('is-current');
     button.setAttribute('aria-current', 'true');
   }
   button.append(el('span', 'note-title', noteTitle(note)), el('span', 'note-date', formatDate(note.updatedAt)));
   button.addEventListener('click', () => openNote(note.id));
-  li.append(button);
+
+  const actions = el('span', 'item-actions');
+  const remove = el('button', 'icon-button danger', 'Delete');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', `Delete note ${noteTitle(note)}`);
+  remove.addEventListener('click', () => deleteNote(note));
+  actions.append(remove);
+
+  item.append(button, actions);
+  li.append(item);
   return li;
 }
 
@@ -388,7 +462,7 @@ function folderItem(folder) {
   toggle.append(el('span', 'chevron'), el('span', 'folder-name', folder.name), el('span', 'folder-count', String(notes.length)));
   toggle.addEventListener('click', () => toggleFolder(folder));
 
-  const actions = el('span', 'folder-actions');
+  const actions = el('span', 'item-actions');
   const rename = el('button', 'icon-button', 'Rename');
   rename.type = 'button';
   rename.setAttribute('aria-label', `Rename folder ${folder.name}`);
@@ -449,9 +523,16 @@ function renderEditor() {
   els.editorPane.hidden = !note;
   els.emptyState.hidden = Boolean(note);
   if (!note) return;
-  if (els.editor.value !== note.body) els.editor.value = note.body;
-  const folder = findFolder(note.folderId);
-  els.noteLocation.textContent = folder ? folder.name : 'Top level';
+  if (joinNote(els.titleInput.value, els.editor.value) !== note.body) {
+    const { title, rest } = splitNote(note.body);
+    els.titleInput.value = title;
+    els.editor.value = rest;
+  }
+
+  const options = [new Option('Top level', '')];
+  for (const folder of [...state.folders].sort(byName)) options.push(new Option(folder.name, folder.id));
+  els.noteFolder.replaceChildren(...options);
+  els.noteFolder.value = note.folderId || '';
 }
 
 function showLoadError() {
@@ -474,7 +555,8 @@ async function init() {
   els.editorPane = document.getElementById('editor-pane');
   els.emptyState = document.getElementById('empty-state');
   els.editor = document.getElementById('editor');
-  els.noteLocation = document.getElementById('note-location');
+  els.titleInput = document.getElementById('title-input');
+  els.noteFolder = document.getElementById('note-folder');
   els.saveStatus = document.getElementById('save-status');
   els.restoreFile = document.getElementById('restore-file');
 
@@ -499,15 +581,34 @@ async function init() {
   }
   document.getElementById('new-note').addEventListener('click', createNote);
   document.getElementById('new-folder').addEventListener('click', () => startEditingFolder(NEW_FOLDER));
-  document.getElementById('delete-note').addEventListener('click', deleteCurrentNote);
+  document.getElementById('delete-note').addEventListener('click', () => deleteNote(currentNote()));
   document.getElementById('download-backup').addEventListener('click', downloadBackup);
-  document.getElementById('restore-backup').addEventListener('click', () => els.restoreFile.click());
+  document.getElementById('restore-backup').addEventListener('click', chooseBackupFile);
   els.restoreFile.addEventListener('change', () => {
     const file = els.restoreFile.files[0];
     els.restoreFile.value = '';
     if (file) restoreBackup(file);
   });
+  els.noteFolder.addEventListener('change', () => moveCurrentNote(els.noteFolder.value || null));
+  els.titleInput.addEventListener('input', handleTyping);
   els.editor.addEventListener('input', handleTyping);
+
+  // Enter in the title moves down to the body; Backspace in an empty body, or
+  // the up arrow at its very start, moves back up to the title.
+  els.titleInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      els.editor.focus();
+      els.editor.setSelectionRange(0, 0);
+    }
+  });
+  els.editor.addEventListener('keydown', event => {
+    const atStart = els.editor.selectionStart === 0 && els.editor.selectionEnd === 0;
+    if ((event.key === 'Backspace' && els.editor.value === '') || (event.key === 'ArrowUp' && atStart)) {
+      event.preventDefault();
+      els.titleInput.focus();
+    }
+  });
 
   // Save right away if the page is closed or hidden mid-typing.
   window.addEventListener('pagehide', flushSave);

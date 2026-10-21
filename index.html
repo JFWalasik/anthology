@@ -35,12 +35,16 @@
     <main class="main">
       <section class="editor-pane" id="editor-pane" hidden>
         <div class="editor-bar">
-          <span class="note-location" id="note-location"></span>
+          <span class="note-location">
+            <select id="note-folder" aria-label="Folder for this note"></select>
+          </span>
           <span class="save-status" id="save-status" aria-live="polite"></span>
           <button type="button" class="quiet danger" id="delete-note">Delete note</button>
         </div>
+        <input type="text" class="title-input" id="title-input" aria-label="Title"
+          placeholder="Title" autocomplete="off">
         <textarea class="editor" id="editor" aria-label="Note text"
-          placeholder="Start typing. The first line becomes the title."></textarea>
+          placeholder="Start writing."></textarea>
       </section>
       <section class="empty-state" id="empty-state" hidden>
         <p>Choose a note, or start a new one.</p>

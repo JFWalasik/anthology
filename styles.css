@@ -7,9 +7,10 @@
   --ink: #2B2926;
   --ink-soft: #5C564D;
   --ink-muted: #7A7266;
-  --accent: #3B5B7A;
-  --accent-soft: #E3EAF1;
-  --accent-ink: #2F4F6E;
+  --accent: #1B1BA6;
+  --accent-soft: #E6E6F6;
+  --accent-ink: #1B1BA6;
+  --accent-line: rgba(27, 27, 166, 0.35);
   --tasks: #1AAB4B;
   --tasks-ink: #062612;
   --danger: #A3402F;
@@ -116,7 +117,10 @@ body.side-tasks :focus-visible { outline-color: var(--tasks); }
 
 .row:hover { background: var(--hover); }
 
-.note-row.is-current { background: var(--accent-soft); color: var(--accent-ink); }
+.note-item, .folder-row { display: flex; align-items: center; border-radius: 6px; }
+.note-item:hover, .folder-row:hover { background: var(--hover); }
+.note-item .row:hover, .folder-row .row:hover { background: transparent; }
+.note-item.is-current { background: var(--accent-soft); color: var(--accent-ink); }
 
 .note-title, .folder-name {
   flex: 1;
@@ -128,10 +132,7 @@ body.side-tasks :focus-visible { outline-color: var(--tasks); }
 
 .note-date, .folder-count { flex: none; font-size: 12px; color: var(--ink-muted); }
 
-.folder-row { display: flex; align-items: center; border-radius: 6px; }
-.folder-row:hover { background: var(--hover); }
-.folder-row .row:hover { background: transparent; }
-.folder-row.is-active .folder-name { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(47, 79, 110, 0.4); }
+.folder-row.is-active .folder-name { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent-line); }
 
 .chevron {
   flex: none;
@@ -145,8 +146,13 @@ body.side-tasks :focus-visible { outline-color: var(--tasks); }
 
 .folder.is-open > .folder-row .chevron { transform: rotate(90deg); }
 
-.folder-actions { display: flex; flex: none; opacity: 0; }
-.folder-row:hover .folder-actions, .folder-row:focus-within .folder-actions { opacity: 1; }
+/* Rename and Delete appear on hover (or keyboard focus). Phones get another way in 0.4. */
+.item-actions { display: flex; flex: none; opacity: 0; }
+.folder-row:hover .item-actions, .folder-row:focus-within .item-actions,
+.note-item:hover .item-actions, .note-item:focus-within .item-actions { opacity: 1; }
+.note-item .item-actions { display: none; }
+.note-item:hover .item-actions, .note-item:focus-within .item-actions { display: flex; }
+.note-item:hover .note-date, .note-item:focus-within .note-date { display: none; }
 
 .icon-button {
   padding: 2px 6px;
@@ -190,7 +196,7 @@ body.side-tasks :focus-visible { outline-color: var(--tasks); }
   color: var(--accent-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(47, 79, 110, 0.35);
+  text-decoration-color: var(--accent-line);
 }
 
 /* ---- Editor ---- */
@@ -209,21 +215,44 @@ body.side-tasks :focus-visible { outline-color: var(--tasks); }
 }
 
 .note-location { flex: 1; }
+
+.note-location select {
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.note-location select:hover { border-color: var(--line); color: var(--ink); }
 .save-status.is-problem { color: var(--danger); }
 
 .quiet { padding: 2px 4px; border: 0; background: transparent; font-size: 13px; color: var(--ink-muted); }
 .quiet.danger:hover { color: var(--danger); }
 
-.editor {
-  flex: 1;
+.title-input, .editor {
   width: 100%;
-  padding: 12px max(28px, calc((100% - 680px) / 2)) 60px;
   border: 0;
   outline: none;
-  resize: none;
   background: transparent;
   color: var(--ink);
   font: inherit;
+}
+
+.title-input {
+  padding: 10px max(28px, calc((100% - 680px) / 2)) 4px;
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+.title-input::placeholder { color: var(--ink-muted); }
+
+.editor {
+  flex: 1;
+  padding: 8px max(28px, calc((100% - 680px) / 2)) 60px;
+  resize: none;
   font-size: 18px;
   line-height: 1.65;
 }

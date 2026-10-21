@@ -5,5 +5,9 @@
 .env
 .env.*
 
+# Backups contain every note, and this repository is public
+backups/
+anthology-backup-*.json
+
 # Claude Code personal settings
 .claude/settings.local.json

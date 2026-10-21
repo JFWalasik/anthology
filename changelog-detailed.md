@@ -1,5 +1,28 @@
 # Changelog (detailed)
 
+## 0.2.1 (Oct 21, 2026)
+
+Added
+- A separate title line above each note, in a larger size (28px); Enter moves down to the body
+- Delete on hover for notes in the sidebar, with the same warning as before
+- A folder menu above each note for moving it to another folder or the top level
+- In Chrome and Edge, Download backup and Restore from backup open a Save or Open window, so backups can go in any folder; the window remembers the last folder used
+
+Changed
+- Notes accent changed to a brighter blue, #1B1BA6
+- Backup file names now include the time and the number of notes, for example anthology-backup-2026-10-21-1435-12-notes.json
+- The ignore list now keeps backups (a backups/ folder, and any anthology-backup file) out of GitHub
+
+Why
+- The title line makes notes easier to scan; it's still saved as the first line of the note, so storage, backups and the coming export are unchanged
+- Several backups made on the same day had identical names and couldn't be told apart
+- Backups contain every note, and the repository is public
+
+Notes for later
+- A backup is one file holding everything. Note-by-note copies arrive with Markdown export in 0.6
+- Moving a note doesn't change its "last edited" date
+- Look and feel decisions now live in docs/design.md
+
 ## 0.2 (Oct 21, 2026)
 
 Added
