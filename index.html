@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anthology</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="app-name">Anthology</h1>
+    <div class="side-toggle" role="group" aria-label="Switch between notes and tasks">
+      <button type="button" data-side="notes" aria-pressed="true">Notes</button>
+      <button type="button" data-side="tasks" aria-pressed="false">Tasks</button>
+    </div>
+  </header>
+
+  <div class="layout" id="notes-view">
+    <aside class="sidebar">
+      <div class="sidebar-actions">
+        <button type="button" class="primary" id="new-note">New note</button>
+        <button type="button" id="new-folder">New folder</button>
+      </div>
+      <p class="new-note-target" id="new-note-target"></p>
+      <nav class="tree-wrap" aria-label="Notes and folders">
+        <ul class="tree" id="tree"></ul>
+      </nav>
+      <div class="sidebar-footer">
+        <button type="button" class="link" id="download-backup">Download backup</button>
+        <button type="button" class="link" id="restore-backup">Restore from backup</button>
+        <input type="file" id="restore-file" accept=".json,application/json" hidden>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="editor-pane" id="editor-pane" hidden>
+        <div class="editor-bar">
+          <span class="note-location" id="note-location"></span>
+          <span class="save-status" id="save-status" aria-live="polite"></span>
+          <button type="button" class="quiet danger" id="delete-note">Delete note</button>
+        </div>
+        <textarea class="editor" id="editor" aria-label="Note text"
+          placeholder="Start typing. The first line becomes the title."></textarea>
+      </section>
+      <section class="empty-state" id="empty-state" hidden>
+        <p>Choose a note, or start a new one.</p>
+      </section>
+    </main>
+  </div>
+
+  <div class="tasks-view" id="tasks-view" hidden>
+    <p class="tasks-label">Tasks</p>
+    <p>Task lists are coming in version 0.3.</p>
+  </div>
+
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
