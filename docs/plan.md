@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.9 · started Oct 20, 2026 · updated Oct 21, 2026 · owner: Oscar
+Plan version 0.10 · started Oct 20, 2026 · updated Oct 21, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -27,7 +27,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Sync and database | Supabase | Moderate-high | Built on Postgres (open source), exportable, can be self-hosted; includes sign-in and access rules |
 | Owner sign-in | Email link, no password, stays signed in for months | High | Needed so only the owner can read and change their data |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
-| Folders | One level in the MVP, nesting planned | High | Data designed from the start so nesting can be added |
+| Folders | One level in the MVP, nesting planned; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
 | Sharing | Read-only links, no sign-in for viewers, first after the MVP (0.7) | Moderate-high | Lowest friction for viewers; edit sharing and co-editing kept in mind |
 | Code home | Personal GitHub repository, public | Moderate | Simplest; can move to an organization later |
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
@@ -44,7 +44,7 @@ The MVP is complete at version 0.6, when the app syncs between phone and compute
 3. **0.3, Tasks basics.** Task lists inside folders; add, check off with strikethrough, hide or show completed, delete, reorder.
 4. **0.4, Hosting and phone layout.** Hosted on GitHub Pages, so the app can be tried on a phone and added to the home screen. Each device still keeps its own notes; nothing syncs yet.
 5. **0.5, Sync and sign-in.** Supabase database with access rules and email-link sign-in, so notes and tasks follow you between phone and computer. A free outside service (cron-job.org or UptimeRobot) checks in with the database daily so it doesn't pause during quiet weeks, with failure emails turned on. Dependabot library alerts are set up.
-6. **0.6, Export, search, and recently deleted (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a recently deleted folder so deletes can be undone; a reminder banner when an export is due.
+6. **0.6, Export, search, and recently deleted (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a recently deleted folder so deletes can be undone, including single tasks; a reminder banner when an export is due.
 7. **0.7, Read-only sharing (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); turn a link off or replace it.
 8. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
@@ -57,6 +57,7 @@ Read-only sharing comes first after the MVP, as version 0.7 in the phase plan. A
 | Enhancement | Side | Raised by | Priority | Size |
 | --- | --- | --- | --- | --- |
 | Nested folders | Both | Oscar | Next | Medium |
+| Show a folder on only one side (folders are shared by Notes and Tasks from 0.3) | Both | Oscar | Soon | Small |
 | Move items between folders (done for notes in 0.2.1) | Both | Claude | Next | Small |
 | Custom domain, before sharing links widely | Setup | Claude | Next | Small |
 | Distinct look for each side | Both | Oscar | Soon | Small |
