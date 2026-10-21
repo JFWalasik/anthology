@@ -38,7 +38,7 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 | Accent | #1AAB4B, a clear green |
 | Text on the green | #062612, very dark green, because white on this green is hard to read |
 
-**Planned: colors that vary on opening.** Each time the app opens, Notes picks an accent from blues, purples and oranges, and Tasks from yellows and greens. Each candidate color needs enough contrast to read on the paper background; yellows especially need care. On the enhancements list in docs/plan.md.
+**Planned: colors that vary on opening.** Each time the app opens, Notes picks an accent from blues, purples and oranges, and Tasks from yellows and greens. When a new color appears, it can be liked and saved as a favorite; favorites come up again in the rotation and can be picked from a list. Each candidate color needs enough contrast to read on the paper background; yellows especially need care. On the enhancements list in docs/plan.md.
 
 ## Type
 

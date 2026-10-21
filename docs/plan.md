@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.8 · started Oct 20, 2026 · updated Oct 21, 2026 · owner: Oscar
+Plan version 0.9 · started Oct 20, 2026 · updated Oct 21, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -60,7 +60,7 @@ Read-only sharing comes first after the MVP, as version 0.7 in the phase plan. A
 | Move items between folders (done for notes in 0.2.1) | Both | Claude | Next | Small |
 | Custom domain, before sharing links widely | Setup | Claude | Next | Small |
 | Distinct look for each side | Both | Oscar | Soon | Small |
-| Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks (see docs/design.md) | Both | Oscar | Soon | Small |
+| Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks. A new color can be liked and saved as a favorite, so it comes up again and can be picked from a list of favorites (see docs/design.md) | Both | Oscar | Soon | Small to medium |
 | Due dates | Tasks | Claude | Soon | Small |
 | Task priorities | Tasks | Claude | Soon | Small |
 | Pin notes to the top | Notes | Claude | Soon | Small |
