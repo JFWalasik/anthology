@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.12 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.13 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -27,7 +27,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | App structure | One app, with a Notes/Tasks toggle | Moderate-high | Less duplicated work; each side can get its own look later |
 | Code approach | Plain HTML, CSS and JavaScript, no build step | Moderate-high | Fewer dependencies, easier to read, ages well. Rich text can likely be added later with a library that needs no build step; live co-editing is the more likely point to revisit |
 | Sync and database | Supabase | Moderate-high | Built on Postgres (open source), exportable, can be self-hosted; includes sign-in and access rules |
-| Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md (to be written) |
+| Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
 | Folders | One level in the MVP, nesting planned; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
 | Sharing | Read-only links, no sign-in for viewers, first after the MVP (0.7) | Moderate-high | Lowest friction for viewers; edit sharing and co-editing kept in mind |
@@ -144,7 +144,7 @@ Changes made from the phone appear in the live app only after they're merged.
 - [x] Other people: separate accounts, added through an allowed list of emails; sharing items between people stays on the enhancements list.
 - [x] Whether Supabase's free plan includes the check that runs before an account is created (needed for the allowed list): yes, per Supabase's documentation.
 - [x] Email for access codes: a dedicated Gmail account. Supabase's built-in email only reaches the project's dashboard team, sends 2 emails an hour, can't be customized to include a code, and is meant for testing only.
-- [ ] Write docs/access-decisions.md ("Access options and decisions"): why a database, Supabase versus Firebase, every access option considered, and why the dedicated Gmail account was chosen.
+- [x] Write docs/access-decisions.md ("Access options and decisions"): why a database, Supabase versus Firebase, every access option considered, and why the dedicated Gmail account was chosen.
 - [x] Connecting the Supabase project to GitHub: not for now. Database scripts are kept in the supabase folder and run by hand in the SQL editor.
 
 ## Upkeep: automated checks and a twice-yearly review
@@ -166,7 +166,6 @@ Most checks run automatically and only get in touch when something needs attenti
 - [ ] **Export and back up.** When the export banner appears, run a full export in the app.
   - Open two or three notes and task lists in a plain text app, to confirm the contents look complete.
   - Store the export somewhere safe, such as a cloud drive folder.
-- [ ] **Check the access email.** Sign in on a device (or ask for a code) to confirm codes still arrive from anthologyaccess@gmail.com. If not, check that account in Gmail and its app password in Google's security settings.
 - [ ] **Review share links (after 0.7).** In the app, open the list of active share links and turn off any no longer needed.
 
 ### Once a year, only after a custom domain is added
