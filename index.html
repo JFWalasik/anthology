@@ -24,7 +24,28 @@
     </div>
   </header>
 
-  <div class="layout" id="layout">
+  <section class="access" id="access" hidden>
+    <div class="access-box">
+      <form id="access-email-form">
+        <label for="access-email">Enter your email to get an access code.</label>
+        <input type="email" id="access-email" autocomplete="email" placeholder="name@example.com" required>
+        <button type="submit" class="primary">Send code</button>
+      </form>
+      <form id="access-code-form" hidden>
+        <label for="access-code" id="access-code-intro"></label>
+        <input type="text" id="access-code" inputmode="numeric" autocomplete="one-time-code"
+          placeholder="6-digit code" maxlength="10">
+        <button type="submit" class="primary">Continue</button>
+        <p class="access-links">
+          <button type="button" class="link" id="access-resend">Send a new code</button>
+          <button type="button" class="link" id="access-change">Use a different email</button>
+        </p>
+      </form>
+      <p class="access-message" id="access-message" role="alert"></p>
+    </div>
+  </section>
+
+  <div class="layout" id="layout" hidden>
     <aside class="sidebar">
       <div class="sidebar-actions">
         <button type="button" class="primary" id="new-item">New note</button>
@@ -35,6 +56,11 @@
         <ul class="tree" id="tree"></ul>
       </nav>
       <div class="sidebar-footer">
+        <p class="sync-status" id="sync-status" aria-live="polite"></p>
+        <p class="account">
+          <span id="account-email"></span>
+          <button type="button" class="link" id="sign-out">Sign out</button>
+        </p>
         <button type="button" class="link" id="download-backup">Download backup</button>
         <button type="button" class="link" id="restore-backup">Restore from backup</button>
         <input type="file" id="restore-file" accept=".json,application/json" hidden>
@@ -85,6 +111,8 @@
     <button type="button" class="link" id="toast-undo">Undo</button>
   </div>
 
+  <script src="vendor/supabase-2.117.3.js"></script>
+  <script src="config.js"></script>
   <script src="storage.js"></script>
   <script src="app.js"></script>
 </body>

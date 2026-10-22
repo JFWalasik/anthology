@@ -735,7 +735,7 @@ async function restoreBackup(file) {
     reportProblem(err);
     return;
   }
-  Object.assign(state, data);
+  Object.assign(state, await Storage.loadAll());
   state.views = { notes: newView(), tasks: newView() };
   savePrefs();
   render();
@@ -997,52 +997,152 @@ function showLoadError() {
     el('p', null, "Your notes and tasks couldn't be loaded, so nothing has been changed."),
     el('p', null, 'Try reloading the page. If this keeps happening, ask for help before adding anything new.')
   );
+  els.layout.hidden = false;
   els.layout.replaceChildren(message);
+}
+
+// ---- Access screen ----
+// People get in by entering their email, then the 6-digit code emailed to them.
+// After that they stay signed in on that device.
+
+let accessEmail = '';
+
+function showAccess(message = '') {
+  document.body.classList.add('signed-out');
+  els.layout.hidden = true;
+  els.access.hidden = false;
+  els.accessEmailForm.hidden = false;
+  els.accessCodeForm.hidden = true;
+  els.accessMessage.textContent = message;
+  els.accessEmail.focus();
+}
+
+// Turns Supabase's error messages into plain ones.
+function accessProblem(err) {
+  const text = (err && err.message) || '';
+  if (!navigator.onLine) return "You're offline. Connect to the internet to get in.";
+  if (/on the list/i.test(text)) return "This email isn't on the list for Anthology.";
+  if (/expired|invalid/i.test(text)) return "That code didn't work. It may have expired; you can send a new one.";
+  if (/rate|too many|seconds/i.test(text)) return 'Too many tries in a short time. Wait a minute, then try again.';
+  return `Something went wrong (${text || 'unknown problem'}). Try again in a moment.`;
+}
+
+async function sendAccessCode(email) {
+  els.accessMessage.textContent = 'Sending…';
+  try {
+    await Storage.sendCode(email);
+  } catch (err) {
+    console.error(err);
+    els.accessMessage.textContent = accessProblem(err);
+    return;
+  }
+  accessEmail = email;
+  els.accessEmailForm.hidden = true;
+  els.accessCodeForm.hidden = false;
+  els.accessCodeIntro.textContent = `A code is on its way to ${email}. Enter it here.`;
+  els.accessCode.value = '';
+  els.accessMessage.textContent = '';
+  els.accessCode.focus();
+}
+
+async function checkAccessCode() {
+  const code = els.accessCode.value.replace(/\D/g, '');
+  if (code.length < 6) {
+    els.accessMessage.textContent = 'Enter the 6-digit code from the email.';
+    return;
+  }
+  els.accessMessage.textContent = 'Checking…';
+  let user;
+  try {
+    user = await Storage.verifyCode(accessEmail, code);
+  } catch (err) {
+    console.error(err);
+    els.accessMessage.textContent = accessProblem(err);
+    return;
+  }
+  els.accessMessage.textContent = '';
+  await startApp(user);
+}
+
+async function signOut() {
+  await flushSaves();
+  if (Storage.hasUnsynced()) await Storage.sync();
+  if (Storage.hasUnsynced() && !confirm(
+    "Some changes haven't reached the database yet, probably because you're offline. " +
+    "If you sign out now, they'll be lost. Sign out anyway?"
+  )) return;
+  await Storage.signOut();
+  location.reload();
+}
+
+// ---- Syncing ----
+
+const SYNC_TEXT = {
+  idle: '',
+  synced: 'All changes synced',
+  pending: 'Syncing…',
+  syncing: 'Syncing…',
+  offline: 'Offline: changes are saved on this device and will sync later',
+  error: "Can't reach the database right now; will keep trying",
+};
+
+function showSyncStatus(status) {
+  // A routine check with nothing to send keeps the "All changes synced" message.
+  if (status === 'syncing' && !Storage.hasUnsynced()) return;
+  els.syncStatus.textContent = SYNC_TEXT[status] ?? '';
+  els.syncStatus.classList.toggle('is-problem', status === 'error');
+}
+
+// Changes arrived from another device or tab. Anything with a save still
+// waiting keeps its on-screen version, so typing isn't lost, and the open
+// item isn't redrawn while someone is typing in it.
+let mainIsStale = false;
+
+async function applyRemoteChanges() {
+  const data = await Storage.loadAll();
+  const keep = (fresh, current, prefix) => {
+    const pending = current.filter(record => pendingSaves.has(`${prefix}:${record.id}`));
+    return [...fresh.filter(record => !pending.some(p => p.id === record.id)), ...pending];
+  };
+  state.folders = data.folders;
+  state.notes = keep(data.notes, state.notes, 'item');
+  state.taskLists = keep(data.taskLists, state.taskLists, 'item');
+  state.tasks = keep(data.tasks, state.tasks, 'task');
+  renderSide();
+  renderSidebar();
+  if (els.itemPane.contains(document.activeElement)) {
+    mainIsStale = true;
+  } else {
+    renderMain();
+    syncHistory();
+  }
+}
+
+// On first sign-in in a browser that has notes from before 0.5, offer to add them.
+async function offerOldDeviceData() {
+  const found = Storage.oldDeviceData();
+  if (!found) return;
+  const parts = [];
+  if (found.notes) parts.push(plural(found.notes, 'note', 'notes'));
+  if (found.taskLists) parts.push(plural(found.taskLists, 'task list', 'task lists'));
+  const add = confirm(
+    `This browser has ${parts.join(' and ')} saved from before you signed in. Add them to your account?\n\n` +
+    'OK adds them. Cancel leaves them out; they stay saved in this browser.'
+  );
+  if (add) {
+    await Storage.addOldDeviceData();
+    Object.assign(state, await Storage.loadAll());
+    render();
+  } else {
+    Storage.leaveOutOldDeviceData();
+  }
 }
 
 // ---- Start up ----
 
-async function init() {
-  const byId = id => document.getElementById(id);
-  Object.assign(els, {
-    layout: byId('layout'),
-    sideButtons: document.querySelectorAll('.side-toggle button'),
-    newItem: byId('new-item'),
-    newItemTarget: byId('new-item-target'),
-    tree: byId('tree'),
-    itemPane: byId('item-pane'),
-    itemFolder: byId('item-folder'),
-    saveStatus: byId('save-status'),
-    deleteItem: byId('delete-item'),
-    titleInput: byId('title-input'),
-    editor: byId('editor'),
-    taskPane: byId('task-pane'),
-    openTasks: byId('open-tasks'),
-    addTask: byId('add-task'),
-    completedHeader: byId('completed-header'),
-    completedCount: byId('completed-count'),
-    completedToggle: byId('completed-toggle'),
-    doneTasks: byId('done-tasks'),
-    emptyState: byId('empty-state'),
-    emptyMessage: byId('empty-message'),
-    restoreFile: byId('restore-file'),
-    toast: byId('toast'),
-    toastText: byId('toast-text'),
-    menu: byId('menu'),
-  });
-
-  try {
-    const data = await Storage.loadAll();
-    Object.assign(state, data);
-  } catch (err) {
-    console.error(err);
-    showLoadError();
-    return;
-  }
-  applyPrefs(Storage.loadPrefs());
-
-  // Clear out blank tasks, and notes and task lists that were left empty,
-  // except the open ones.
+// Clears out blank tasks, and notes and task lists that were left empty,
+// except the open ones.
+async function clearOutEmpties() {
   for (const task of state.tasks.filter(t => t.text.trim() === '')) {
     state.tasks = state.tasks.filter(t => t !== task);
     await runSave(() => Storage.deleteTask(task.id));
@@ -1055,6 +1155,30 @@ async function init() {
     }
   }
   state.side = startSide;
+}
+
+async function startApp(user) {
+  Storage.openUser(user);
+  document.body.classList.remove('signed-out');
+  els.access.hidden = true;
+  els.layout.hidden = false;
+  els.accountEmail.textContent = user.email;
+  try {
+    Object.assign(state, await Storage.loadAll());
+  } catch (err) {
+    console.error(err);
+    showLoadError();
+    return;
+  }
+  applyPrefs(Storage.loadPrefs());
+  await clearOutEmpties();
+  render();
+  await offerOldDeviceData();
+  Storage.sync();
+}
+
+function wireEvents() {
+  const byId = id => document.getElementById(id);
 
   for (const toggle of els.sideButtons) {
     toggle.addEventListener('click', () => setSide(toggle.dataset.side));
@@ -1072,7 +1196,21 @@ async function init() {
   });
   byId('toast-undo').addEventListener('click', undoDelete);
   byId('back-button').addEventListener('click', goBack);
+  byId('sign-out').addEventListener('click', signOut);
   window.addEventListener('popstate', handlePopState);
+
+  // Access screen
+  els.accessEmailForm.addEventListener('submit', event => {
+    event.preventDefault();
+    const email = els.accessEmail.value.trim().toLowerCase();
+    if (email) sendAccessCode(email);
+  });
+  els.accessCodeForm.addEventListener('submit', event => {
+    event.preventDefault();
+    checkAccessCode();
+  });
+  byId('access-resend').addEventListener('click', () => sendAccessCode(accessEmail));
+  byId('access-change').addEventListener('click', () => showAccess());
 
   // The ⋯ menu closes on a tap elsewhere, Escape, scrolling or resizing.
   document.addEventListener('pointerdown', event => {
@@ -1120,19 +1258,82 @@ async function init() {
     renderTasks();
   });
 
+  // Changes that arrived while someone was typing are shown once they finish.
+  els.itemPane.addEventListener('focusout', event => {
+    if (mainIsStale && !els.itemPane.contains(event.relatedTarget)) {
+      mainIsStale = false;
+      renderMain();
+      syncHistory();
+    }
+  });
+
   // Save right away if the page is closed or hidden mid-typing.
   window.addEventListener('pagehide', flushSaves);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSaves();
   });
 
-  render();
+  Storage.onChange(applyRemoteChanges);
+  Storage.onStatus(showSyncStatus);
+  Storage.onSignedOut(() => showAccess("You've been signed out. Enter your email to get back in."));
+}
+
+async function init() {
+  const byId = id => document.getElementById(id);
+  Object.assign(els, {
+    layout: byId('layout'),
+    sideButtons: document.querySelectorAll('.side-toggle button'),
+    newItem: byId('new-item'),
+    newItemTarget: byId('new-item-target'),
+    tree: byId('tree'),
+    itemPane: byId('item-pane'),
+    itemFolder: byId('item-folder'),
+    saveStatus: byId('save-status'),
+    deleteItem: byId('delete-item'),
+    titleInput: byId('title-input'),
+    editor: byId('editor'),
+    taskPane: byId('task-pane'),
+    openTasks: byId('open-tasks'),
+    addTask: byId('add-task'),
+    completedHeader: byId('completed-header'),
+    completedCount: byId('completed-count'),
+    completedToggle: byId('completed-toggle'),
+    doneTasks: byId('done-tasks'),
+    emptyState: byId('empty-state'),
+    emptyMessage: byId('empty-message'),
+    restoreFile: byId('restore-file'),
+    toast: byId('toast'),
+    toastText: byId('toast-text'),
+    menu: byId('menu'),
+    syncStatus: byId('sync-status'),
+    accountEmail: byId('account-email'),
+    access: byId('access'),
+    accessEmailForm: byId('access-email-form'),
+    accessEmail: byId('access-email'),
+    accessCodeForm: byId('access-code-form'),
+    accessCodeIntro: byId('access-code-intro'),
+    accessCode: byId('access-code'),
+    accessMessage: byId('access-message'),
+  });
+  wireEvents();
 
   // The offline helper (sw.js) only works when the app is served from a web
   // address, not when index.html is opened as a file.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(err => console.error('Offline helper not set up', err));
   }
+
+  let user = null;
+  try {
+    Storage.connect();
+    user = await Storage.restoreUser();
+  } catch (err) {
+    console.error(err);
+    showLoadError();
+    return;
+  }
+  if (user) await startApp(user);
+  else showAccess();
 }
 
 init();

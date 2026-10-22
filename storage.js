@@ -1,121 +1,456 @@
 // storage.js
-// All saving and loading happens here, and nowhere else. For now the data lives
-// in the browser's own storage (localStorage). In 0.5 this file is replaced with
-// one that talks to Supabase, and the rest of the app shouldn't need to change.
-// The data functions return Promises (results that arrive later), because a
-// database is never instant; with browser storage they finish right away.
+// All saving and loading happens here, and nowhere else.
 //
-// The data has four kinds of records:
-// - folders, shared by both sides: { id, name, parentId, createdAt }
+// How it works from 0.5:
+// - Each person's notes and tasks are kept on the device (in the browser's
+//   own storage), so the app opens instantly and works offline.
+// - Every change is saved on the device first and added to an "outbox" of
+//   changes waiting to go to the database (Supabase).
+// - When there's a connection, waiting changes are sent, then anything
+//   changed on other devices is fetched. If the same item was changed in two
+//   places, the later change wins; the database checks this too.
+// - Deleting marks a record as deleted in the database instead of erasing
+//   it, so other devices learn about the deletion.
+// - Each person's copy on a device is kept separately, and cleared when they
+//   sign out.
+//
+// The record shapes the rest of the app uses:
+// - folders: { id, name, parentId, createdAt, updatedAt }
 // - notes: { id, folderId, body, createdAt, updatedAt }
 // - task lists: { id, folderId, title, showCompleted, createdAt, updatedAt }
-// - tasks: { id, listId, text, done, position, createdAt, completedAt }
+// - tasks: { id, listId, text, done, position, createdAt, completedAt, updatedAt }
 
 const Storage = (() => {
-  const DATA_KEY = 'anthology.data';
-  const PREFS_KEY = 'anthology.prefs';
+  const OLD_DATA_KEY = 'anthology.data';          // notes saved on this device before 0.5
+  const OLD_DATA_DONE_KEY = 'anthology.data.handled';
+  const LAST_USER_KEY = 'anthology.lastUser';
   const BACKUP_FORMAT = 'anthology-backup';
   const BACKUP_VERSION = 2;
+  const SYNC_DELAY_MS = 1500;
+  const SYNC_EVERY_MS = 60 * 1000;
+  const RETRY_MS = 30 * 1000;
+  const PAGE_SIZE = 1000;
 
-  function readData() {
-    const raw = localStorage.getItem(DATA_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return {
-      folders: parsed.folders || [],
-      notes: parsed.notes || [],
-      taskLists: parsed.taskLists || [],
-      tasks: parsed.tasks || [],
-    };
+  const KINDS = ['folders', 'notes', 'taskLists', 'tasks'];
+  const TABLE = { folders: 'folders', notes: 'notes', taskLists: 'task_lists', tasks: 'tasks' };
+
+  // How each kind of record is written in the database, and read back.
+  const toRow = {
+    folders: f => ({ id: f.id, name: f.name, parent_id: f.parentId ?? null, created_at: f.createdAt, updated_at: f.updatedAt }),
+    notes: n => ({ id: n.id, folder_id: n.folderId ?? null, body: n.body, created_at: n.createdAt, updated_at: n.updatedAt }),
+    taskLists: l => ({
+      id: l.id, folder_id: l.folderId ?? null, title: l.title, show_completed: l.showCompleted,
+      created_at: l.createdAt, updated_at: l.updatedAt,
+    }),
+    tasks: t => ({
+      id: t.id, list_id: t.listId, text: t.text, done: t.done, position: t.position,
+      created_at: t.createdAt, completed_at: t.completedAt ?? null, updated_at: t.updatedAt,
+    }),
+  };
+  const fromRow = {
+    folders: r => ({ id: r.id, name: r.name, parentId: r.parent_id, createdAt: r.created_at, updatedAt: r.updated_at }),
+    notes: r => ({ id: r.id, folderId: r.folder_id, body: r.body, createdAt: r.created_at, updatedAt: r.updated_at }),
+    taskLists: r => ({
+      id: r.id, folderId: r.folder_id, title: r.title, showCompleted: r.show_completed,
+      createdAt: r.created_at, updatedAt: r.updated_at,
+    }),
+    tasks: r => ({
+      id: r.id, listId: r.list_id, text: r.text, done: r.done, position: r.position,
+      createdAt: r.created_at, completedAt: r.completed_at, updatedAt: r.updated_at,
+    }),
+  };
+
+  let client = null;        // the connection to Supabase
+  let user = null;          // { id, email } of the person signed in
+  let syncTimer = null;
+  let syncRunning = null;
+  let syncAgain = false;
+  let status = 'idle';
+  const listeners = { change: [], status: [], signedOut: [] };
+
+  // ---- Small helpers ----
+
+  function readJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
   }
 
-  function writeData(data) {
-    localStorage.setItem(DATA_KEY, JSON.stringify({
-      version: 2,
-      folders: data.folders,
-      notes: data.notes,
-      taskLists: data.taskLists,
-      tasks: data.tasks,
-    }));
+  function writeJSON(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
-  function upsert(list, item) {
-    const index = list.findIndex(existing => existing.id === item.id);
-    if (index === -1) list.push({ ...item });
-    else list[index] = { ...item };
+  function emit(event, value) {
+    for (const listener of listeners[event]) listener(value);
   }
 
-  async function saveRecords(kind, records) {
-    const data = readData();
+  const dataKey = () => `anthology.u.${user.id}.data`;
+  const outboxKey = () => `anthology.u.${user.id}.outbox`;
+  const prefsKey = () => (user ? `anthology.u.${user.id}.prefs` : 'anthology.prefs');
+
+  function emptyData() {
+    return { folders: [], notes: [], taskLists: [], tasks: [], pulledAt: {} };
+  }
+
+  function readLocal() {
+    const data = readJSON(dataKey(), null) || emptyData();
+    for (const kind of KINDS) data[kind] = data[kind] || [];
+    data.pulledAt = data.pulledAt || {};
+    return data;
+  }
+
+  const writeLocal = data => writeJSON(dataKey(), data);
+  const readOutbox = () => readJSON(outboxKey(), {});
+  const writeOutbox = outbox => writeJSON(outboxKey(), outbox);
+
+  function upsert(list, record) {
+    const index = list.findIndex(existing => existing.id === record.id);
+    if (index === -1) list.push({ ...record });
+    else list[index] = { ...record };
+  }
+
+  // Adds changes to the outbox. A later change to the same record replaces an
+  // earlier one that hasn't been sent yet.
+  function queue(changes) {
+    const outbox = readOutbox();
+    for (const { kind, record, deleted } of changes) {
+      outbox[`${kind}:${record.id}`] = {
+        kind,
+        row: { ...toRow[kind](record), deleted },
+        stamp: `${Date.now()}-${Math.random()}`,
+      };
+    }
+    writeOutbox(outbox);
+    scheduleSync();
+  }
+
+  // Saves records on the device and queues them for the database.
+  function put(kind, records) {
+    const data = readLocal();
     for (const record of records) upsert(data[kind], record);
-    writeData(data);
+    writeLocal(data);
+    queue(records.map(record => ({ kind, record, deleted: false })));
   }
 
-  // ---- Reading ----
+  // Removes records from the device and queues "deleted" marks for the database.
+  function remove(data, kind, ids, changes) {
+    const now = Date.now();
+    for (const id of ids) {
+      const record = data[kind].find(r => r.id === id);
+      if (!record) continue;
+      data[kind] = data[kind].filter(r => r.id !== id);
+      changes.push({ kind, record: { ...record, updatedAt: now }, deleted: true });
+    }
+  }
+
+  // ---- Access (signing in) ----
+
+  function connect() {
+    client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+    client.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_OUT' && user) emit('signedOut');
+    });
+  }
+
+  function rememberUser(sessionUser) {
+    const found = { id: sessionUser.id, email: sessionUser.email };
+    writeJSON(LAST_USER_KEY, found);
+    return found;
+  }
+
+  // Finds who is signed in on this device. Offline, it trusts the last person
+  // who signed in here, so the app still opens; sync resumes when back online.
+  async function restoreUser() {
+    const { data, error } = await client.auth.getSession();
+    if (data && data.session) return rememberUser(data.session.user);
+    const last = readJSON(LAST_USER_KEY, null);
+    if (last && (error || !navigator.onLine)) return last;
+    return null;
+  }
+
+  async function sendCode(email) {
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname },
+    });
+    if (error) throw error;
+  }
+
+  async function verifyCode(email, code) {
+    const { data, error } = await client.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (error) throw error;
+    return rememberUser(data.user);
+  }
+
+  // Signing out clears this person's copy from the device.
+  async function signOut() {
+    const leaving = user;
+    user = null;
+    clearTimeout(syncTimer);
+    if (leaving) {
+      for (const suffix of ['data', 'outbox', 'prefs']) localStorage.removeItem(`anthology.u.${leaving.id}.${suffix}`);
+    }
+    localStorage.removeItem(LAST_USER_KEY);
+    try {
+      await client.auth.signOut();
+    } catch (err) {
+      console.error('Sign-out from the database failed; this device is signed out anyway', err);
+    }
+  }
+
+  function openUser(signedIn) {
+    user = signedIn;
+    if (!localStorage.getItem(dataKey())) writeLocal(emptyData());
+    window.addEventListener('online', () => sync());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') sync();
+    });
+    window.addEventListener('storage', event => {
+      // Another tab of the app changed this person's data.
+      if (user && event.key === dataKey()) emit('change');
+    });
+    setInterval(() => {
+      if (document.visibilityState === 'visible') sync();
+    }, SYNC_EVERY_MS);
+  }
+
+  // ---- Syncing with the database ----
+
+  function setStatus(next) {
+    if (next === status) return;
+    status = next;
+    emit('status', status);
+  }
+
+  function hasUnsynced() {
+    return Boolean(user) && Object.keys(readOutbox()).length > 0;
+  }
+
+  function scheduleSync(delay = SYNC_DELAY_MS) {
+    if (!user) return;
+    if (status === 'synced') setStatus('pending');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(sync, delay);
+  }
+
+  async function sync() {
+    if (!user) return;
+    if (syncRunning) {
+      syncAgain = true;
+      return syncRunning;
+    }
+    if (!navigator.onLine) {
+      setStatus('offline');
+      return;
+    }
+    syncRunning = (async () => {
+      setStatus('syncing');
+      try {
+        const { data } = await client.auth.getSession();
+        if (!data.session) {
+          setStatus('offline');
+          return;
+        }
+        await push();
+        const changed = await pull();
+        setStatus(hasUnsynced() ? 'pending' : 'synced');
+        if (changed) emit('change');
+      } catch (err) {
+        console.error('Sync failed; will try again', err);
+        setStatus(navigator.onLine ? 'error' : 'offline');
+        scheduleSync(RETRY_MS);
+      }
+    })();
+    await syncRunning;
+    syncRunning = null;
+    if (syncAgain) {
+      syncAgain = false;
+      scheduleSync(0);
+    }
+  }
+
+  // Sends waiting changes, then removes them from the outbox unless they were
+  // changed again while being sent.
+  async function push() {
+    const entries = Object.entries(readOutbox());
+    for (const kind of KINDS) {
+      const ofKind = entries.filter(([, entry]) => entry.kind === kind);
+      for (let start = 0; start < ofKind.length; start += 500) {
+        const chunk = ofKind.slice(start, start + 500);
+        const { error } = await client.from(TABLE[kind]).upsert(chunk.map(([, entry]) => entry.row));
+        if (error) throw error;
+        const outbox = readOutbox();
+        for (const [key, entry] of chunk) {
+          if (outbox[key] && outbox[key].stamp === entry.stamp) delete outbox[key];
+        }
+        writeOutbox(outbox);
+      }
+    }
+  }
+
+  // Fetches what changed in the database since this device last checked, and
+  // applies it. Returns true if anything on the device changed.
+  async function pull() {
+    const before = readLocal();
+    const fetched = {};
+    for (const kind of KINDS) {
+      fetched[kind] = [];
+      const since = before.pulledAt[kind];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        let query = client.from(TABLE[kind]).select('*').order('synced_at').range(from, from + PAGE_SIZE - 1);
+        // A few seconds of overlap, so nothing saved at the same moment is missed.
+        if (since) query = query.gt('synced_at', new Date(new Date(since).getTime() - 5000).toISOString());
+        // The very first time, deleted records only matter if the device has something to delete.
+        else if (before[kind].length === 0) query = query.eq('deleted', false);
+        const { data: rows, error } = await query;
+        if (error) throw error;
+        fetched[kind].push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+      }
+    }
+
+    // Applied all at once, after fetching, so changes made on this device in
+    // the meantime aren't overwritten.
+    const data = readLocal();
+    const outbox = readOutbox();
+    let changed = false;
+    for (const kind of KINDS) {
+      for (const row of fetched[kind]) {
+        if (!data.pulledAt[kind] || row.synced_at > data.pulledAt[kind]) data.pulledAt[kind] = row.synced_at;
+        if (outbox[`${kind}:${row.id}`]) continue; // this device has a newer change on its way
+        const index = data[kind].findIndex(r => r.id === row.id);
+        if (row.deleted) {
+          if (index !== -1) {
+            data[kind].splice(index, 1);
+            changed = true;
+          }
+          continue;
+        }
+        const record = fromRow[kind](row);
+        if (index === -1) {
+          data[kind].push(record);
+          changed = true;
+        } else if (data[kind][index].updatedAt <= record.updatedAt
+          && JSON.stringify(data[kind][index]) !== JSON.stringify(record)) {
+          data[kind][index] = record;
+          changed = true;
+        }
+      }
+    }
+    writeLocal(data);
+    return changed;
+  }
+
+  // ---- Reading and saving, used by the rest of the app ----
 
   async function loadAll() {
-    return readData();
+    const data = readLocal();
+    return { folders: data.folders, notes: data.notes, taskLists: data.taskLists, tasks: data.tasks };
   }
-
-  // ---- Notes ----
 
   async function saveNote(note) {
-    await saveRecords('notes', [note]);
+    put('notes', [note]);
   }
-
-  async function deleteNote(id) {
-    const data = readData();
-    data.notes = data.notes.filter(note => note.id !== id);
-    writeData(data);
-  }
-
-  // ---- Task lists and tasks ----
 
   async function saveTaskList(list) {
-    await saveRecords('taskLists', [list]);
-  }
-
-  // Deleting a task list also deletes its tasks.
-  async function deleteTaskList(id) {
-    const data = readData();
-    data.taskLists = data.taskLists.filter(list => list.id !== id);
-    data.tasks = data.tasks.filter(task => task.listId !== id);
-    writeData(data);
+    put('taskLists', [list]);
   }
 
   async function saveTask(task) {
-    await saveRecords('tasks', [task]);
+    put('tasks', [{ ...task, updatedAt: Date.now() }]);
   }
 
   // Saves several tasks at once, for example after reordering.
   async function saveTasks(tasks) {
-    await saveRecords('tasks', tasks);
+    const now = Date.now();
+    put('tasks', tasks.map(task => ({ ...task, updatedAt: now })));
+  }
+
+  async function saveFolder(folder) {
+    put('folders', [{ ...folder, updatedAt: Date.now() }]);
+  }
+
+  function removeAndQueue(build) {
+    const data = readLocal();
+    const changes = [];
+    build(data, changes);
+    writeLocal(data);
+    queue(changes);
+  }
+
+  async function deleteNote(id) {
+    removeAndQueue((data, changes) => remove(data, 'notes', [id], changes));
   }
 
   async function deleteTask(id) {
-    const data = readData();
-    data.tasks = data.tasks.filter(task => task.id !== id);
-    writeData(data);
+    removeAndQueue((data, changes) => remove(data, 'tasks', [id], changes));
   }
 
-  // ---- Folders ----
-
-  async function saveFolder(folder) {
-    await saveRecords('folders', [folder]);
+  // Deleting a task list also deletes its tasks.
+  async function deleteTaskList(id) {
+    removeAndQueue((data, changes) => {
+      remove(data, 'tasks', data.tasks.filter(t => t.listId === id).map(t => t.id), changes);
+      remove(data, 'taskLists', [id], changes);
+    });
   }
 
   // Deleting a folder also deletes the notes and task lists in it.
   async function deleteFolder(id) {
-    const data = readData();
-    const listIds = new Set(data.taskLists.filter(list => list.folderId === id).map(list => list.id));
-    data.folders = data.folders.filter(folder => folder.id !== id);
-    data.notes = data.notes.filter(note => note.folderId !== id);
-    data.taskLists = data.taskLists.filter(list => !listIds.has(list.id));
-    data.tasks = data.tasks.filter(task => !listIds.has(task.listId));
-    writeData(data);
+    removeAndQueue((data, changes) => {
+      const listIds = data.taskLists.filter(l => l.folderId === id).map(l => l.id);
+      remove(data, 'tasks', data.tasks.filter(t => listIds.includes(t.listId)).map(t => t.id), changes);
+      remove(data, 'taskLists', listIds, changes);
+      remove(data, 'notes', data.notes.filter(n => n.folderId === id).map(n => n.id), changes);
+      remove(data, 'folders', [id], changes);
+    });
   }
 
-  async function replaceAll(data) {
-    writeData(data);
+  // Restoring a backup replaces everything in the account. Restored records
+  // count as just changed, so they win over older copies on other devices.
+  async function replaceAll(incoming) {
+    removeAndQueue((data, changes) => {
+      for (const kind of KINDS) {
+        const keep = new Set(incoming[kind].map(r => r.id));
+        remove(data, kind, data[kind].filter(r => !keep.has(r.id)).map(r => r.id), changes);
+      }
+    });
+    const now = Date.now();
+    for (const kind of KINDS) put(kind, incoming[kind].map(r => ({ ...r, updatedAt: now })));
+  }
+
+  // ---- Notes saved on this device before 0.5 ----
+
+  // Returns counts if this device has notes from before sign-in that haven't
+  // been added to an account or left out yet; otherwise null.
+  function oldDeviceData() {
+    if (localStorage.getItem(OLD_DATA_DONE_KEY)) return null;
+    const old = readJSON(OLD_DATA_KEY, null);
+    if (!old) return null;
+    const data = cleanData({ folders: [], notes: [], ...old });
+    if (data.notes.length + data.taskLists.length === 0) return null;
+    return { data, notes: data.notes.length, taskLists: data.taskLists.length };
+  }
+
+  // Adds them to the signed-in person's account. The original copy stays on
+  // the device, only marked as handled.
+  async function addOldDeviceData() {
+    const found = oldDeviceData();
+    if (!found) return;
+    const now = Date.now();
+    put('folders', found.data.folders.map(f => ({ ...f, updatedAt: now })));
+    put('notes', found.data.notes);
+    put('taskLists', found.data.taskLists);
+    put('tasks', found.data.tasks.map(t => ({ ...t, updatedAt: now })));
+    localStorage.setItem(OLD_DATA_DONE_KEY, 'added');
+  }
+
+  function leaveOutOldDeviceData() {
+    localStorage.setItem(OLD_DATA_DONE_KEY, 'left out');
   }
 
   // ---- Backups ----
@@ -160,7 +495,7 @@ const Storage = (() => {
 
     const folders = input.folders
       .filter(f => isRecord(f) && typeof f.name === 'string')
-      .map(f => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, createdAt: time(f.createdAt) }));
+      .map(f => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, createdAt: time(f.createdAt), updatedAt: time(f.updatedAt) }));
     const folderIds = new Set(folders.map(f => f.id));
     for (const folder of folders) {
       if (!folderIds.has(folder.parentId)) folder.parentId = null;
@@ -198,33 +533,37 @@ const Storage = (() => {
         position: Number.isFinite(t.position) ? t.position : index,
         createdAt: time(t.createdAt),
         completedAt: Number.isFinite(t.completedAt) ? t.completedAt : null,
+        updatedAt: time(t.updatedAt),
       }));
 
     return { folders, notes, taskLists, tasks };
   }
 
   // ---- Preferences ----
-  // Small per-device settings, such as which note was open. These stay in the
-  // browser even after sync arrives, since each device can differ.
+  // Small per-device settings, such as which note was open, kept separately
+  // for each person.
 
   function loadPrefs() {
-    try {
-      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
-    } catch {
-      return {};
-    }
+    return readJSON(prefsKey(), {}) || {};
   }
 
   function savePrefs(prefs) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      writeJSON(prefsKey(), prefs);
     } catch (err) {
       console.error('Could not save preferences', err);
     }
   }
 
   return {
+    connect, restoreUser, sendCode, verifyCode, signOut, openUser,
+    sync, hasUnsynced, getStatus: () => status,
+    onChange: fn => listeners.change.push(fn),
+    onStatus: fn => listeners.status.push(fn),
+    onSignedOut: fn => listeners.signedOut.push(fn),
     loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
-    saveFolder, deleteFolder, replaceAll, makeBackup, parseBackup, loadPrefs, savePrefs,
+    saveFolder, deleteFolder, replaceAll,
+    oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,
+    makeBackup, parseBackup, loadPrefs, savePrefs,
   };
 })();

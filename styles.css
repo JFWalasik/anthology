@@ -379,6 +379,50 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--ink-muted);
 }
 
+/* ---- Access screen and account ---- */
+
+body.signed-out .side-toggle { display: none; }
+
+.access {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 20px 24px;
+}
+
+.access-box { width: 100%; max-width: 360px; }
+.access-box form { display: flex; flex-direction: column; gap: 12px; }
+.access-box label { font-size: 18px; }
+
+.access-box input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+.access-box input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.access-box .primary {
+  padding: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.access-links { display: flex; justify-content: space-between; margin: 4px 0 0; }
+.access-message { min-height: 1.5em; color: var(--ink-soft); }
+
+.sync-status, .account { margin: 0; font-size: 13px; color: var(--ink-muted); }
+.sync-status.is-problem { color: var(--danger); }
+.account { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 4px; }
+.account .link { font-size: 13px; }
+
 /* ---- Menus and messages ---- */
 
 .menu {
