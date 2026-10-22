@@ -8,6 +8,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 
 - Oscar is the owner of this project: a leader and builder who is comfortable with some technical topics and new to others. Please don't assume developer knowledge. Explain technical terms briefly in plain language the first time they come up, and favor plain words over jargon.
 - Propose before acting. At the start of a task, describe what you plan to change and why, and wait for an okay before starting. Small, obvious steps within an approved task don't need separate approval.
+- Check current documentation before recommending outside services, and list the required accounts and setup at the start of each phase.
 - When you don't know why something is happening, say so. When there's more than one plausible explanation or approach, lay out the options with a rough confidence level for each.
 - Writing style: light formatting, with bold mainly for headings. No all caps in titles or headings. Use em dashes sparingly. Avoid words like landscape, realm, delve, meticulous and intricacies, and avoid the "it's not x, it's y" phrasing.
 - At the end of a session, give a short summary of what changed and a suggested next step.
