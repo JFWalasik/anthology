@@ -61,7 +61,7 @@ Read-only sharing comes first after the MVP, as version 0.7 in the phase plan. A
 | Show a folder on only one side (folders are shared by Notes and Tasks from 0.3) | Both | Oscar | Soon | Small |
 | Move items between folders (done for notes in 0.2.1) | Both | Claude | Next | Small |
 | Custom domain, before sharing links widely | Setup | Claude | Next | Small |
-| "Invite someone" screen for the owner, adding an email to the allowed list without the Supabase dashboard | Setup | Oscar | Soon | Small |
+| "Invite someone" screen for the owner, adding an email to the allowed list without the Supabase dashboard | Setup | Oscar | Later | Small |
 | Own email sender for sign-in codes, before inviting more than a few people (Supabase's built-in sender allows only a few emails per hour) | Setup | Claude | Before inviting others | Small |
 | Distinct look for each side | Both | Oscar | Soon | Small |
 | Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks. A new color can be liked and saved as a favorite, so it comes up again and can be picked from a list of favorites (see docs/design.md) | Both | Oscar | Soon | Small to medium |
@@ -90,7 +90,7 @@ One key must never appear in the repository or the website: Supabase's secret ke
 | Supabase secret key (called service role or secret) | Full access that bypasses access rules | Never in the repository or website; stays in the Supabase dashboard | 0.5 |
 | Access rules (row level security) | Database rules for who can read or change what | On for every table; tested by trying to read data while signed out | 0.5, and each new table |
 | Sign-in redirect setting | Where the email sign-in link is allowed to send you | Limited to the app's own address | 0.5 |
-| Open sign-up setting | Whether anyone can create an account | Off; only emails on the allowed list can sign in | 0.5 |
+| Sign-up check | Turns away new accounts for emails not on the allowed list | Supabase's "allow new users to sign up" stays on; the check (a "Before User Created" hook) does the limiting. Tested by trying to sign in with an email not on the list | 0.5 |
 | Share links | The unguessable part of a shared link | Long and random; treated like a password; can be turned off or replaced | 0.7 |
 | Allowed list of emails | Who may create an account | Kept in the database, readable only by the sign-up check; changed by the owner | 0.5 |
 | Keep-alive service | Outside service (cron-job.org) that checks in with the database daily | Uses only the public key, never the secret key; its account gets a strong password | 0.5.1 |
@@ -138,7 +138,8 @@ Changes made from the phone appear in the live app only after they're merged.
 - [x] Keep-alive for Supabase pausing: a free outside service (cron-job.org) that checks in daily, set up at 0.5.1.
 - [x] Sign-in: email code rather than link, so it works in a home-screen app on iPhone.
 - [x] Other people: separate accounts, added through an allowed list of emails; sharing items between people stays on the enhancements list.
-- [ ] Whether Supabase's free plan includes the check that runs before an account is created (needed for the allowed list); to confirm during 0.5 setup. If not, people are added by hand in the dashboard.
+- [x] Whether Supabase's free plan includes the check that runs before an account is created (needed for the allowed list): yes, per Supabase's documentation.
+- [x] Connecting the Supabase project to GitHub: not for now. Database scripts are kept in the supabase folder and run by hand in the SQL editor.
 
 ## Upkeep: automated checks and a twice-yearly review
 
