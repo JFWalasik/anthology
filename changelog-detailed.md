@@ -1,5 +1,27 @@
 # Changelog (detailed)
 
+## 0.8 (Oct 22, 2026) · MVP complete
+
+Added
+- Export everything (Settings and help): one ZIP file with every note and task list as a Markdown file, in Notes and Tasks folders that mirror your folders; task lists are checklists ("- [ ]" and "- [x]"). It also holds the backup file and a short "About this export" note
+- Restore from backup accepts the ZIP file, or the backup file inside it (including ZIP files re-made by a Mac's own tools), and asks: "Add what's missing" (only items you don't have now come back; your current versions win) or "Replace everything"
+- Search, under New note and New folder: titles, note text, task list names and tasks, across both sides, with matches highlighted
+- Export reminder: a banner when the last export is about six months old (or six months after the account was made, if never); "Not now" hides it for two weeks. Both dates are kept with the account, so every device agrees
+- export.js, which makes and reads ZIP files without a library
+
+Changed
+- "Download backup" replaced by "Export everything", which includes the backup
+
+Why
+- Export is the plan's insurance: everything can always leave Anthology in a common format
+- Restoring an old backup used to replace everything, which could lose newer work; adding only what's missing is safe with any backup
+
+Notes for later
+- File and folder names in the export replace characters some computers don't allow (such as "/"), and same-named items become "Name (2)"
+- A note's first line becomes a Markdown heading in the export
+- Tested: the ZIP checked with the Mac's own unzip tools (folders, emoji, duplicate names); reading back both the app's ZIP and a Mac-compressed one; "Add what's missing" bringing back a deleted note while keeping an edited one; search in notes and tasks, opening a result from the other side, and code-like text; the reminder when due, snoozed, and for a new account. The real Save window and a real export download were not tested here
+- Plan updated to version 0.17
+
 ## 0.7.2 (Oct 22, 2026)
 
 Changed

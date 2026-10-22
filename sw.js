@@ -8,7 +8,7 @@
 // This only affects the app's own files. Notes and tasks are saved separately
 // (see storage.js).
 
-const CACHE = 'anthology-files-v7';
+const CACHE = 'anthology-files-v8';
 const APP_FILES = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const APP_FILES = [
   './vendor/supabase-2.117.3.js',
   './config.js',
   './storage.js',
+  './export.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',

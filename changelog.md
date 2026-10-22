@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.8 (Oct 22, 2026)
+MVP complete: export everything as Markdown files, search across notes and tasks, safer restores, and a reminder when an export is due.
+
 ## 0.7.2 (Oct 22, 2026)
 Changes from other devices and edit links show up within about 15 seconds, even in an open note; the Share panel looks right on phones.
 

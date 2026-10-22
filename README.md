@@ -2,7 +2,7 @@
 
 Anthology is a browser-based notes and tasks app for personal use, built to last for years. One app holds both, with a toggle between the Notes side and the Tasks side.
 
-The live app is at https://jfwalasik.github.io/anthology/. To get in, enter your email and the access code emailed to you; only emails on the allowed list can get in. Notes and tasks sync between devices and work offline. A note or task list can be shared by link, either view-only or editable. Settings and help, at the bottom of the sidebar, has backups, shared links, and short help.
+The live app is at https://jfwalasik.github.io/anthology/. To get in, enter your email and the access code emailed to you; only emails on the allowed list can get in. Notes and tasks sync between devices and work offline. A note or task list can be shared by link, either view-only or editable. Search is at the top of the sidebar. Settings and help, at the bottom of the sidebar, has export and backups, shared links, and short help.
 
 ## Adding Anthology to your phone's home screen
 
@@ -32,7 +32,7 @@ Anthology's notes and tasks are stored in a free Supabase database. Supabase pau
   2. Open the project named **anthology**.
   3. Click **Resume project** and confirm. It takes a few minutes.
   4. Open Anthology. Waiting changes go up on their own.
-- Resume within a year. Supabase keeps a paused project's data for up to a year. As extra insurance, use **Download backup** in the app's sidebar now and then.
+- Resume within a year. Supabase keeps a paused project's data for up to a year. As extra insurance, use **Export everything** (Settings and help) now and then; the app reminds you every six months.
 
 If pausing ever becomes a nuisance, a free daily check-in service can keep the database awake automatically; it's on the enhancements list in docs/plan.md.
 

@@ -228,7 +228,7 @@ const Storage = (() => {
     user = null;
     clearTimeout(syncTimer);
     if (leaving) {
-      for (const suffix of ['data', 'outbox', 'prefs']) localStorage.removeItem(`anthology.u.${leaving.id}.${suffix}`);
+      for (const suffix of ['data', 'outbox', 'prefs', 'lastExport']) localStorage.removeItem(`anthology.u.${leaving.id}.${suffix}`);
     }
     localStorage.removeItem(LAST_USER_KEY);
     try {
@@ -486,6 +486,61 @@ const Storage = (() => {
     });
     const now = Date.now();
     for (const kind of KINDS) put(kind, incoming[kind].map(r => ({ ...r, updatedAt: now })));
+  }
+
+  // Restoring by "adding what's missing": only records not currently in the
+  // account come back (including ones in Recently deleted). Everything that's
+  // there now stays exactly as it is. Returns how many of each were added.
+  async function addMissing(incoming) {
+    const data = readLocal();
+    const now = Date.now();
+    const added = {};
+    for (const kind of KINDS) {
+      const present = new Set(data[kind].map(r => r.id));
+      const missing = incoming[kind].filter(r => !present.has(r.id));
+      added[kind] = missing.length;
+      if (!missing.length) continue;
+      const ids = new Set(missing.map(r => r.id));
+      const fresh = readLocal();
+      fresh.trash = fresh.trash.filter(e => !(e.kind === kind && ids.has(e.record.id)));
+      writeLocal(fresh);
+      // Counted as just changed, so they win over "deleted" marks on other devices.
+      put(kind, missing.map(r => ({ ...r, updatedAt: now })));
+    }
+    return added;
+  }
+
+  // ---- Export dates, kept with the account ----
+
+  async function exportInfo() {
+    const { data } = await client.auth.getSession();
+    const signedIn = data.session && data.session.user;
+    if (!signedIn) return null;
+    const meta = signedIn.user_metadata || {};
+    const local = Number(localStorage.getItem(`anthology.u.${signedIn.id}.lastExport`)) || 0;
+    return {
+      createdAt: Date.parse(signedIn.created_at) || Date.now(),
+      lastExportAt: Math.max(meta.last_export_at || 0, local),
+      snoozedUntil: meta.export_reminder_snoozed_until || 0,
+    };
+  }
+
+  // Remembers that an export was made, on this device straight away and with
+  // the account when there's a connection.
+  async function recordExport() {
+    if (!user) return;
+    const now = Date.now();
+    localStorage.setItem(`anthology.u.${user.id}.lastExport`, String(now));
+    try {
+      await client.auth.updateUser({ data: { last_export_at: now } });
+    } catch (err) {
+      console.error('Export date not saved with the account yet', err);
+    }
+  }
+
+  async function snoozeReminder(until) {
+    const { error } = await client.auth.updateUser({ data: { export_reminder_snoozed_until: until } });
+    if (error) throw error;
   }
 
   // ---- Recently deleted ----
@@ -808,7 +863,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.7.2', // must match APP_VERSION in app.js
+    version: '0.8', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
@@ -816,7 +871,8 @@ const Storage = (() => {
     onSignedOut: fn => listeners.signedOut.push(fn),
     loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
     saveFolder, deleteFolder, replaceAll,
-    listTrash, restore, eraseForever, emptyTrash,
+    listTrash, restore, eraseForever, emptyTrash, addMissing,
+    exportInfo, recordExport, snoozeReminder,
     getOrCreateShareLink, turnOffShareLink, replaceShareLink, listShareLinks, getSharedItem,
     saveSharedNote, saveSharedListTitle, addSharedTask, saveSharedTask, deleteSharedTask,
     oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,

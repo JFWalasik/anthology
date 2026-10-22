@@ -46,15 +46,29 @@
     </div>
   </section>
 
+  <div class="reminder" id="reminder" role="status" hidden>
+    <p>It's been a while since your last export. Exporting keeps a copy of everything outside Anthology.</p>
+    <p class="reminder-actions">
+      <button type="button" class="primary" id="reminder-export">Export</button>
+      <button type="button" class="quiet" id="reminder-later">Not now</button>
+    </p>
+  </div>
+
   <div class="layout" id="layout" hidden>
     <aside class="sidebar">
       <div class="sidebar-actions">
         <button type="button" class="primary" id="new-item">New note</button>
         <button type="button" id="new-folder">New folder</button>
       </div>
+      <div class="search-row">
+        <input type="search" id="search" placeholder="Search notes and tasks" aria-label="Search notes and tasks"
+          autocomplete="off">
+      </div>
       <p class="new-item-target" id="new-item-target"></p>
       <nav class="tree-wrap" aria-label="Folders and items">
         <ul class="tree" id="tree"></ul>
+        <ul class="search-results" id="search-results" hidden></ul>
+        <p class="search-none" id="search-none" hidden>No matches.</p>
       </nav>
       <div class="sidebar-footer">
         <button type="button" class="footer-link" id="trash-link">
@@ -128,14 +142,16 @@
           </section>
 
           <section class="page-section">
-            <h3>Backups</h3>
-            <p>A backup is one file with all your notes, task lists and folders. Restoring one replaces everything in
-              Anthology; what it replaces goes to Recently deleted for 30 days.</p>
+            <h3>Export and backups</h3>
+            <p>Export everything makes one ZIP file with every note and task list as a Markdown file (plain text
+              that opens anywhere and imports into most notes apps), plus a backup that Anthology can restore.</p>
+            <p>Restore from backup takes that ZIP file, or the backup file inside it. You can add only what's
+              missing, or replace everything.</p>
             <p class="page-actions">
-              <button type="button" class="link" id="download-backup">Download backup</button>
+              <button type="button" class="link" id="export-everything">Export everything</button>
               <button type="button" class="link" id="restore-backup">Restore from backup</button>
             </p>
-            <input type="file" id="restore-file" accept=".json,application/json" hidden>
+            <input type="file" id="restore-file" accept=".zip,.json,application/zip,application/json" hidden>
           </section>
 
           <section class="page-section">
@@ -162,6 +178,13 @@
             <h4>Recently deleted</h4>
             <p>Deleted notes, task lists, folders and tasks can be restored for 30 days from Recently deleted, at the
               bottom of the sidebar.</p>
+            <h4>Search</h4>
+            <p>The search box at the top of the sidebar searches titles, note text, task lists and tasks, on both
+              sides at once.</p>
+            <h4>Export and restore</h4>
+            <p>Export everything (above) saves a ZIP file you can keep anywhere. Every six months or so, a reminder
+              suggests making one. Restoring can add only what's missing, so an old backup never overwrites newer
+              work.</p>
             <h4>Sharing</h4>
             <p>Open a note or task list and choose Share to get a link. Choose Can view or Can edit. Anyone with
               the link can see it without signing in, and sees your changes as you make them; with an edit link they
@@ -218,6 +241,20 @@
     <p class="share-close"><button type="button" class="quiet" id="share-close">Done</button></p>
   </dialog>
 
+  <dialog class="share-dialog" id="restore-dialog">
+    <h2>Restore from backup</h2>
+    <p id="restore-summary"></p>
+    <p><strong>Add what's missing</strong> brings back only what you don't have now, such as things deleted since the
+      backup. Everything you have now stays as it is.</p>
+    <p><strong>Replace everything</strong> makes Anthology match the backup exactly. What it replaces goes to
+      Recently deleted for 30 days.</p>
+    <div class="share-actions">
+      <button type="button" class="primary" id="restore-add">Add what's missing</button>
+      <button type="button" class="link danger" id="restore-replace">Replace everything</button>
+    </div>
+    <p class="share-close"><button type="button" class="quiet" id="restore-cancel">Cancel</button></p>
+  </dialog>
+
   <div class="menu" id="menu" role="menu" hidden></div>
 
   <div class="toast" id="toast" role="status" hidden>
@@ -228,6 +265,7 @@
   <script src="vendor/supabase-2.117.3.js"></script>
   <script src="config.js"></script>
   <script src="storage.js"></script>
+  <script src="export.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -58,7 +58,10 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - The bottom section of the sidebar has three lines, apart from the folders so they don't look like them: Recently deleted (with a count), Settings and help, and the sync status.
 - Recently deleted: on both sides. It opens a page listing everything deleted in the last 30 days, newest first. Each entry shows its title and a line such as "Folder · with 2 notes · deleted Oct 22 · 30 days left", with Restore and Delete now. Things deleted as part of a folder or list are counted under it rather than listed separately. On phones it opens as its own screen with "‹ Back".
 - The sync status reads "All changes synced", "Syncing…", or the offline message.
-- Settings and help: one page with sections for Account (email, Sign out), Backups (Download and Restore), Shared links (a link to its own page), and Help and About (short help topics and the version number). On phones it opens as its own screen with "‹ Back".
+- Search: a box under New note and New folder. While there's text in it, results replace the folder list: title, a line of matching text, and "Note" or "Task list" with the folder, with matches highlighted. Searches both sides; tapping a result switches sides if needed. Escape clears it.
+- Export reminder: a banner under the top bar, in the side's light accent color, with Export and Not now.
+- Restore asks "Add what's missing" (the default, highlighted) or "Replace everything".
+- Settings and help: one page with sections for Account (email, Sign out), Export and backups (Export everything and Restore), Shared links (a link to its own page), and Help and About (short help topics and the version number). On phones it opens as its own screen with "‹ Back".
 - Shared links: its own page, reached from Settings and help, listing each active link with Copy link and Turn off.
 - Sharing: "Share" in the bar above an open note or task list opens a small panel with a "Can view" / "Can edit" choice (view is the default, and each has its own link), the link, "Copy link" (on phones, "Share link…" opens the phone's share menu), "Make a new link" and "Turn off link".
 - The shared page (what someone with a link sees): just the app name at the top, the title, and the note text or the task list with locked checkboxes, in the same Paper style. It ends with "Shared from Anthology. This is a read-only copy; only its owner can change it." It checks for changes every 15 seconds and when brought back into view.
@@ -82,6 +85,8 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 ## Decision log
 
 Newest first.
+
+- **Oct 22, 2026.** Export, search, restore choices and the export reminder (0.8, MVP complete). Export ZIP has separate Notes and Tasks folders. "Download backup" became "Export everything", which includes the backup.
 
 - **Oct 22, 2026.** Edit links (0.7.1): Can view / Can edit in the Share panel; the shared page becomes an editor for edit links.
 

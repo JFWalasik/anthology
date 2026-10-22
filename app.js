@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.7.2'; // must match the version in storage.js
+const APP_VERSION = '0.8'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -12,7 +12,8 @@ const CAN_RESTORE = 'You can restore it from Recently deleted for 30 days.';
 const KEEP_DAYS = 30;
 const NEW_FOLDER = 'new';
 const BACKUP_PICKER_ID = 'anthology-backups';
-const BACKUP_TYPES = [{ description: 'Anthology backup', accept: { 'application/json': ['.json'] } }];
+const EXPORT_TYPES = [{ description: 'Anthology export', accept: { 'application/zip': ['.zip'] } }];
+const RESTORE_TYPES = [{ description: 'Anthology export or backup', accept: { 'application/zip': ['.zip'], 'application/json': ['.json'] } }];
 
 // Folders are shared. Each side lists its own kind of item inside them.
 const SIDES = {
@@ -118,16 +119,6 @@ function formatDate(ms) {
   const options = { month: 'short', day: 'numeric' };
   if (date.getFullYear() !== now.getFullYear()) options.year = 'numeric';
   return date.toLocaleDateString([], options);
-}
-
-// For example anthology-backup-2026-10-21-1435-12-notes-3-lists.json
-function backupFileName(data) {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  const notes = plural(data.notes.length, 'note', 'notes').replace(' ', '-');
-  const lists = plural(data.taskLists.length, 'list', 'lists').replace(' ', '-');
-  return `anthology-backup-${stamp}-${notes}-${lists}.json`;
 }
 
 const byRecent = (a, b) => b.updatedAt - a.updatedAt;
@@ -673,36 +664,31 @@ async function deleteFolder(folder) {
   render();
 }
 
-// ---- Backup ----
+// ---- Export and restore ----
 
-async function downloadBackup() {
-  await flushSaves();
-  let data;
-  try {
-    data = await Storage.loadAll();
-  } catch (err) {
-    console.error(err);
-    alert("The backup couldn't be made because your notes couldn't be read.");
-    return;
-  }
-  const text = Storage.makeBackup(data);
-  const name = backupFileName(data);
+// For example anthology-export-2026-10-22-1435
+function exportName() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `anthology-export-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
 
-  // Chrome and Edge can show a Save window, so you choose the folder; the
-  // window remembers the last folder used. Other browsers use the downloads folder.
+// Saves a file: Chrome and Edge show a Save window, so you choose the folder
+// (it remembers the last one); other browsers use the downloads folder.
+async function saveFile(blob, name, types) {
   if (window.showSaveFilePicker) {
     try {
-      const handle = await window.showSaveFilePicker({ id: BACKUP_PICKER_ID, suggestedName: name, types: BACKUP_TYPES });
+      const handle = await window.showSaveFilePicker({ id: BACKUP_PICKER_ID, suggestedName: name, types });
       const writable = await handle.createWritable();
-      await writable.write(text);
+      await writable.write(blob);
       await writable.close();
-      return;
+      return true;
     } catch (err) {
-      if (err.name === 'AbortError') return; // the Save window was cancelled
+      if (err.name === 'AbortError') return false; // the Save window was cancelled
       console.error('Save window failed, downloading instead', err);
     }
   }
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const url = URL.createObjectURL(blob);
   const link = el('a');
   link.href = url;
   link.download = name;
@@ -710,12 +696,32 @@ async function downloadBackup() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+// One ZIP file with every note and task list as Markdown, plus the backup file.
+async function exportEverything() {
+  await flushSaves();
+  let data;
+  try {
+    data = await Storage.loadAll();
+  } catch (err) {
+    console.error(err);
+    alert("The export couldn't be made because your notes couldn't be read.");
+    return;
+  }
+  const name = exportName();
+  const files = Export.buildFiles(data, Storage.makeBackup(data), name);
+  const saved = await saveFile(Export.makeZip(files), `${name}.zip`, EXPORT_TYPES);
+  if (!saved) return;
+  await Storage.recordExport();
+  renderReminder();
 }
 
 async function chooseBackupFile() {
   if (window.showOpenFilePicker) {
     try {
-      const [handle] = await window.showOpenFilePicker({ id: BACKUP_PICKER_ID, types: BACKUP_TYPES });
+      const [handle] = await window.showOpenFilePicker({ id: BACKUP_PICKER_ID, types: RESTORE_TYPES });
       restoreBackup(await handle.getFile());
       return;
     } catch (err) {
@@ -726,10 +732,34 @@ async function chooseBackupFile() {
   els.restoreFile.click();
 }
 
+// Asks how to restore. Resolves to 'add', 'replace', or null (cancelled).
+function askHowToRestore(summary) {
+  els.restoreSummary.textContent = `This backup has ${summary}.`;
+  els.restoreDialog.showModal();
+  return new Promise(resolve => {
+    const finish = choice => {
+      els.restoreDialog.close();
+      for (const [button, handler] of handlers) button.removeEventListener('click', handler);
+      els.restoreDialog.removeEventListener('cancel', onCancel);
+      resolve(choice);
+    };
+    const handlers = [
+      [els.restoreAdd, () => finish('add')],
+      [els.restoreReplace, () => finish('replace')],
+      [els.restoreCancel, () => finish(null)],
+    ];
+    const onCancel = () => finish(null);
+    for (const [button, handler] of handlers) button.addEventListener('click', handler);
+    els.restoreDialog.addEventListener('cancel', onCancel);
+  });
+}
+
 async function restoreBackup(file) {
   let data;
   try {
-    data = Storage.parseBackup(await file.text());
+    const isZip = /\.zip$/i.test(file.name) || file.type === 'application/zip';
+    const text = isZip ? await Export.readBackupFromZip(await file.arrayBuffer()) : await file.text();
+    data = Storage.parseBackup(text);
   } catch (err) {
     alert(err.message);
     return;
@@ -737,24 +767,64 @@ async function restoreBackup(file) {
   const summary = `${plural(data.notes.length, 'note', 'notes')}, ` +
     `${plural(data.taskLists.length, 'task list', 'task lists')} and ` +
     `${plural(data.folders.length, 'folder', 'folders')}`;
-  const ok = confirm(
-    `Are you sure? Restoring replaces everything currently in Anthology with the ${summary} in this backup. ` +
-    `What it replaces goes to Recently deleted for 30 days.`
-  );
-  if (!ok) return;
-  for (const pending of pendingSaves.values()) clearTimeout(pending.timer);
-  pendingSaves.clear();
+  const choice = await askHowToRestore(summary);
+  if (!choice) return;
+
+  await flushSaves();
   hideUndo();
   try {
-    await Storage.replaceAll(data);
+    if (choice === 'add') {
+      const added = await Storage.addMissing(data);
+      const parts = [];
+      if (added.notes) parts.push(plural(added.notes, 'note', 'notes'));
+      if (added.taskLists) parts.push(plural(added.taskLists, 'task list', 'task lists'));
+      if (added.tasks) parts.push(plural(added.tasks, 'task', 'tasks'));
+      if (added.folders) parts.push(plural(added.folders, 'folder', 'folders'));
+      alert(parts.length
+        ? `Added ${parts.join(', ')} from the backup. Everything else was left as it is.`
+        : 'Nothing was missing: everything in this backup is already in Anthology.');
+    } else {
+      for (const pending of pendingSaves.values()) clearTimeout(pending.timer);
+      pendingSaves.clear();
+      await Storage.replaceAll(data);
+      state.views = { notes: newView(), tasks: newView() };
+    }
   } catch (err) {
     reportProblem(err);
     return;
   }
   Object.assign(state, await Storage.loadAll());
-  state.views = { notes: newView(), tasks: newView() };
   savePrefs();
   render();
+}
+
+// ---- Export reminder ----
+// A banner when the last export is about six months old (or, if there's never
+// been one, six months after the account was made). "Not now" hides it for
+// two weeks. Both dates are kept with the account, so every device agrees.
+
+const REMIND_AFTER_MS = 182 * 24 * 60 * 60 * 1000;
+const SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+
+async function renderReminder() {
+  let info = null;
+  try {
+    info = await Storage.exportInfo();
+  } catch (err) {
+    console.error(err);
+  }
+  const due = Boolean(info) && Date.now() - Math.max(info.lastExportAt || 0, info.createdAt || 0) > REMIND_AFTER_MS
+    && Date.now() > (info.snoozedUntil || 0);
+  els.reminder.hidden = !due;
+}
+
+async function snoozeReminder() {
+  els.reminder.hidden = true;
+  try {
+    await Storage.snoozeReminder(Date.now() + SNOOZE_MS);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 // ---- Sides ----
@@ -795,6 +865,7 @@ function renderSidebar() {
   }
   for (const item of itemsIn(null)) rows.push(itemRow(item));
   els.tree.replaceChildren(...rows);
+  renderSearch();
 
   // Recently deleted sits at the bottom of the sidebar, apart from the folders.
   els.trashCount.textContent = state.trash.length ? String(state.trash.length) : '';
@@ -931,6 +1002,94 @@ function renderMain() {
     if (els.titleInput.value !== item.title) els.titleInput.value = item.title;
     renderTasks();
   }
+}
+
+// ---- Search ----
+// Searches titles, note text, task list names and tasks, across both sides.
+// While there's text in the search box, results replace the folder list.
+
+let searchText = '';
+
+// A short piece of text around the first match, on one line.
+function snippetAround(text, query) {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const at = flat.toLowerCase().indexOf(query);
+  const start = Math.max(0, at - 30);
+  const end = Math.min(flat.length, (at === -1 ? 0 : at + query.length) + 60);
+  return (start > 0 ? '…' : '') + flat.slice(start, end) + (end < flat.length ? '…' : '');
+}
+
+function searchMatches(rawQuery) {
+  const query = rawQuery.toLowerCase();
+  const folderName = id => (findFolder(id) || {}).name || null;
+  const results = [];
+  for (const note of state.notes) {
+    if (!note.body.toLowerCase().includes(query)) continue;
+    const title = noteTitle(note);
+    const { rest } = splitNote(note.body);
+    const inTitle = title.toLowerCase().includes(query);
+    const snippet = rest.toLowerCase().includes(query) ? snippetAround(rest, query) : snippetAround(rest, '');
+    results.push({ side: 'notes', item: note, title, inTitle, snippet, folder: folderName(note.folderId) });
+  }
+  for (const list of state.taskLists) {
+    const inTitle = list.title.toLowerCase().includes(query);
+    const task = tasksIn(list.id).find(t => t.text.toLowerCase().includes(query));
+    if (!inTitle && !task) continue;
+    results.push({
+      side: 'tasks', item: list, title: SIDES.tasks.title(list), inTitle,
+      snippet: task ? snippetAround(task.text, query) : '', folder: folderName(list.folderId),
+    });
+  }
+  // Title matches first, then the most recently changed.
+  results.sort((a, b) => (b.inTitle - a.inTitle) || (b.item.updatedAt - a.item.updatedAt));
+  return results.slice(0, 100);
+}
+
+// Puts text into an element with each match wrapped in <mark>, safely (no HTML).
+function highlight(target, text, query) {
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  let from = 0;
+  for (let at = lower.indexOf(q); q && at !== -1; at = lower.indexOf(q, from)) {
+    if (at > from) target.append(document.createTextNode(text.slice(from, at)));
+    target.append(el('mark', null, text.slice(at, at + q.length)));
+    from = at + q.length;
+  }
+  if (from < text.length) target.append(document.createTextNode(text.slice(from)));
+}
+
+function renderSearch() {
+  const query = searchText.trim();
+  const searching = query.length > 0;
+  els.tree.hidden = searching;
+  els.newItemTarget.hidden = searching;
+  els.searchResults.hidden = !searching;
+  els.searchNone.hidden = true;
+  if (!searching) return;
+  const results = searchMatches(query);
+  els.searchNone.hidden = results.length > 0;
+  els.searchResults.replaceChildren(...results.map(result => {
+    const li = el('li', 'sidebar-item');
+    if (result.side === state.side && result.item.id === view().currentId && !state.page) li.classList.add('is-current');
+    const open = button('row search-result', undefined, undefined, () => openFromSearch(result));
+    const title = el('span', 'item-title');
+    highlight(title, result.title, query);
+    open.append(title);
+    if (result.snippet) {
+      const snippet = el('span', 'search-snippet');
+      highlight(snippet, result.snippet, query);
+      open.append(snippet);
+    }
+    const kind = result.side === 'notes' ? 'Note' : 'Task list';
+    open.append(el('span', 'search-meta', result.folder ? `${kind} · ${result.folder}` : kind));
+    li.append(open);
+    return li;
+  }));
+}
+
+async function openFromSearch(result) {
+  if (result.side !== state.side) await setSide(result.side);
+  await openItem(result.item.id);
 }
 
 // ---- Recently deleted ----
@@ -1686,6 +1845,7 @@ async function startApp(user) {
   await clearOutEmpties();
   render();
   await offerOldDeviceData();
+  renderReminder();
   Storage.sync();
 }
 
@@ -1699,7 +1859,20 @@ function wireEvents() {
   byId('new-folder').addEventListener('click', () => startEditingFolder(NEW_FOLDER));
   els.deleteItem.addEventListener('click', () => deleteItem(currentItem()));
   els.itemFolder.addEventListener('change', () => moveCurrentItem(els.itemFolder.value || null));
-  byId('download-backup').addEventListener('click', downloadBackup);
+  byId('export-everything').addEventListener('click', exportEverything);
+  byId('reminder-export').addEventListener('click', exportEverything);
+  byId('reminder-later').addEventListener('click', snoozeReminder);
+  els.search.addEventListener('input', () => {
+    searchText = els.search.value;
+    renderSearch();
+  });
+  els.search.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      els.search.value = '';
+      searchText = '';
+      renderSearch();
+    }
+  });
   byId('restore-backup').addEventListener('click', chooseBackupFile);
   els.restoreFile.addEventListener('change', () => {
     const file = els.restoreFile.files[0];
@@ -1861,6 +2034,15 @@ async function init() {
     viewerTasks: byId('viewer-tasks'),
     viewerMissing: byId('viewer-missing'),
     viewerStatus: byId('viewer-status'),
+    search: byId('search'),
+    searchResults: byId('search-results'),
+    searchNone: byId('search-none'),
+    reminder: byId('reminder'),
+    restoreDialog: byId('restore-dialog'),
+    restoreSummary: byId('restore-summary'),
+    restoreAdd: byId('restore-add'),
+    restoreReplace: byId('restore-replace'),
+    restoreCancel: byId('restore-cancel'),
     viewerFooter: byId('viewer-footer'),
     syncStatus: byId('sync-status'),
     accountEmail: byId('account-email'),
