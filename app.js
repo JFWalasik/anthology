@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.8'; // must match the version in storage.js
+const APP_VERSION = '0.8.1'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -339,6 +339,7 @@ async function openItem(id) {
 }
 
 async function createItem() {
+  clearSearch();
   await leaveCurrentItem();
   state.page = null;
   const now = Date.now();
@@ -618,6 +619,7 @@ function toggleFolder(folder) {
 }
 
 function startEditingFolder(id) {
+  clearSearch();
   state.editingFolderId = id;
   renderSidebar();
 }
@@ -831,6 +833,7 @@ async function snoozeReminder() {
 
 async function setSide(name) {
   if (name === state.side) return;
+  clearSearch();
   await leaveCurrentItem();
   state.side = name;
   state.editingFolderId = null;
@@ -1058,9 +1061,20 @@ function highlight(target, text, query) {
   if (from < text.length) target.append(document.createTextNode(text.slice(from)));
 }
 
+// The search clears when you open a result, tap ×, press Escape, switch
+// between Notes and Tasks, or start something new, so the sidebar goes back to
+// your folders.
+function clearSearch() {
+  if (!searchText && !els.search.value) return;
+  els.search.value = '';
+  searchText = '';
+  renderSearch();
+}
+
 function renderSearch() {
   const query = searchText.trim();
   const searching = query.length > 0;
+  els.searchClear.hidden = !els.search.value;
   els.tree.hidden = searching;
   els.newItemTarget.hidden = searching;
   els.searchResults.hidden = !searching;
@@ -1087,9 +1101,13 @@ function renderSearch() {
   }));
 }
 
+// Opens a result and shows it in its folder, with the search cleared.
 async function openFromSearch(result) {
+  clearSearch();
   if (result.side !== state.side) await setSide(result.side);
+  if (result.item.folderId) view().openFolderIds.add(result.item.folderId);
   await openItem(result.item.id);
+  renderSidebar();
 }
 
 // ---- Recently deleted ----
@@ -1867,11 +1885,11 @@ function wireEvents() {
     renderSearch();
   });
   els.search.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
-      els.search.value = '';
-      searchText = '';
-      renderSearch();
-    }
+    if (event.key === 'Escape') clearSearch();
+  });
+  els.searchClear.addEventListener('click', () => {
+    clearSearch();
+    els.search.focus();
   });
   byId('restore-backup').addEventListener('click', chooseBackupFile);
   els.restoreFile.addEventListener('change', () => {
@@ -2035,6 +2053,7 @@ async function init() {
     viewerMissing: byId('viewer-missing'),
     viewerStatus: byId('viewer-status'),
     search: byId('search'),
+    searchClear: byId('search-clear'),
     searchResults: byId('search-results'),
     searchNone: byId('search-none'),
     reminder: byId('reminder'),

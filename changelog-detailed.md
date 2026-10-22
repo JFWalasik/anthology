@@ -1,5 +1,13 @@
 # Changelog (detailed)
 
+## 0.8.1 (Oct 22, 2026)
+
+Changed
+- The search clears, and the sidebar goes back to your folders, when you: open a result (its folder opens and it's highlighted), tap the new × in the search box, press Escape, switch between Notes and Tasks, or tap New note, New task list or New folder
+
+Why
+- Search results stayed until the text was deleted by hand, which phones made awkward
+
 ## 0.8 (Oct 22, 2026) · MVP complete
 
 Added

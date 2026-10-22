@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.8.1 (Oct 22, 2026)
+Search results go away when you open one, tap ×, switch sides, or start something new.
+
 ## 0.8 (Oct 22, 2026)
 MVP complete: export everything as Markdown files, search across notes and tasks, safer restores, and a reminder when an export is due.
 
