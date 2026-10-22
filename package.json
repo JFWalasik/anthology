@@ -1,0 +1,8 @@
+{
+  "name": "anthology",
+  "private": true,
+  "description": "Lists the libraries the app uses, so GitHub can send alerts about security problems in them. Nothing is installed from this file; the library itself is copied into vendor/.",
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.3"
+  }
+}

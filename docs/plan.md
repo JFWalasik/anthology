@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.13 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.14 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -35,7 +35,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
 | Export | Included in the MVP | High | Insurance against every other decision |
 
-One Supabase limit to know about: [free projects pause after a week of low database activity](https://supabase.com/docs/guides/platform/free-project-pausing). Data is kept, and a paused project can be resumed from the dashboard in a couple of clicks for up to a year. A small automatic keep-alive (see the 0.5.1 phase and upkeep) should prevent pausing during quiet stretches.
+One Supabase limit to know about: [free projects pause after a week of low database activity](https://supabase.com/docs/guides/platform/free-project-pausing). Data is kept, and a paused project can be resumed from the dashboard in a couple of clicks for up to a year. Normal use keeps it active, and Supabase emails a warning about a week before pausing. The README explains what to look for and how to resume. A daily automatic keep-alive is on the enhancements list if pausing becomes a problem.
 
 ## Phase plan
 
@@ -46,7 +46,7 @@ The MVP is complete at version 0.6, when the app syncs between phone and compute
 3. **0.3, Tasks basics.** Task lists inside folders; add, check off with strikethrough, hide or show completed, delete, reorder.
 4. **0.4, Hosting and phone layout.** Hosted on GitHub Pages, so the app can be tried on a phone and added to the home screen. Each device still keeps its own notes; nothing syncs yet.
 5. **0.5, Sync, offline editing, and sign-in.** Supabase database with access rules and sign-in by email code, so notes and tasks follow you between phone and computer. Changes are saved on the device first and sent when there's a connection, so the app works fully offline; if the same item changes on two devices, the later change wins. Separate accounts per person, with each person's copy on a shared device kept apart and cleared on sign-out. Sign-up limited to an allowed list of emails. Existing notes on a device can be uploaded at first sign-in.
-   **0.5.1, Keep-alive and library alerts.** A free outside service (cron-job.org) checks in with the database daily so it doesn't pause during quiet weeks, with failure emails turned on. Dependabot library alerts are set up.
+   **0.5.1, Pause notes and library alerts.** No keep-alive service for now: normal use keeps the database active, and Supabase emails a warning before pausing. The README explains what can happen and what to do. Dependabot library alerts watch the Supabase library, listed in package.json.
 6. **0.6, Export, search, and recently deleted (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a recently deleted folder so deletes can be undone, including single tasks; a reminder banner when an export is due.
 7. **0.7, Read-only sharing (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); turn a link off or replace it.
 8. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
@@ -65,6 +65,8 @@ Read-only sharing comes first after the MVP, as version 0.7 in the phase plan. A
 | Custom domain, before sharing links widely | Setup | Claude | Next | Small |
 | "Invite someone" screen for the owner, adding an email to the allowed list without the Supabase dashboard | Setup | Oscar | Later | Small |
 | Email sending from a custom domain instead of the dedicated Gmail account, if a domain is ever added | Setup | Claude | Later | Small |
+| Daily keep-alive (cron-job.org), only if database pausing becomes a problem | Setup | Oscar | Low | Small |
+| Short guide for people using the app, once others use it | Both | Oscar | Low | Small |
 | Distinct look for each side | Both | Oscar | Soon | Small |
 | Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks. A new color can be liked and saved as a favorite, so it comes up again and can be picked from a list of favorites (see docs/design.md) | Both | Oscar | Soon | Small to medium |
 | Due dates | Tasks | Claude | Soon | Small |
@@ -97,7 +99,7 @@ One key must never appear in the repository or the website: Supabase's secret ke
 | Allowed list of emails | Who may create an account | Kept in the database, readable only by the sign-up check; changed by the owner | 0.5 |
 | Access-code email account | anthologyaccess@gmail.com, which sends access codes | Strong password and 2-Step Verification; nothing else uses it | 0.5 |
 | Gmail app password | Lets Supabase send email from anthologyaccess (a Google feature for outside programs) | Entered only in Supabase's email (SMTP) settings, never in the repository; can be deleted and replaced in the Google account | 0.5 |
-| Keep-alive service | Outside service (cron-job.org) that checks in with the database daily | Uses only the public key, never the secret key; its account gets a strong password | 0.5.1 |
+| Keep-alive service (only if added) | Outside service (cron-job.org) that checks in with the database daily | Uses only the public key, never the secret key; its account gets a strong password | If added from the enhancements list |
 
 ## Hosting and public code notes
 
@@ -139,7 +141,7 @@ Changes made from the phone appear in the live app only after they're merged.
 - [x] Recently deleted folder: moved into the MVP (0.6).
 - [x] Sharing at 0.7: single notes and task lists first; whole folders later.
 - [x] Where this plan lives: in the repository as docs/plan.md, the single source of truth.
-- [x] Keep-alive for Supabase pausing: a free outside service (cron-job.org) that checks in daily, set up at 0.5.1.
+- [x] Keep-alive for Supabase pausing: none for now (decided at 0.5.1). Normal use keeps the database active, Supabase emails a warning before pausing, and the README explains what to do. A cron-job.org check-in is on the enhancements list if needed.
 - [x] Sign-in: email code rather than link, so it works in a home-screen app on iPhone.
 - [x] Other people: separate accounts, added through an allowed list of emails; sharing items between people stays on the enhancements list.
 - [x] Whether Supabase's free plan includes the check that runs before an account is created (needed for the allowed list): yes, per Supabase's documentation.
@@ -153,10 +155,9 @@ Most checks run automatically and only get in touch when something needs attenti
 
 ### Automated
 
-- **Keep-alive with failure alerts** (set up at 0.5.1). cron-job.org checks in with the database daily and emails you if a check fails.
-- **Supabase pause emails** (built in). Supabase emails the owner about pausing, a backstop if the keep-alive fails.
+- **Supabase pause emails** (built in). Supabase emails the owner about a week before pausing the database, and again once paused. The README explains what to do.
 - **GitHub secret scanning** (turned on when the repository is created). Blocks saving changes that contain recognized keys. CodeQL, turned on at the same time, checks the code for common security problems once there is code to check. Whether it recognizes Supabase keys is to be confirmed at setup.
-- **Library update alerts** (set up at 0.5.1). GitHub's Dependabot emails about outdated or vulnerable libraries, using a small file that names the Supabase library version. To be tested with this setup.
+- **Library security alerts** (set up at 0.5.1). GitHub's Dependabot emails if the Supabase library has a known security problem, using package.json, a small file that names the library and its version. When updating the library, replace the copy in vendor/ and update the version in package.json and index.html.
 - **Export reminder** (built into the app at 0.6). A banner appears when the last export is about six months old.
 - **Scheduled check by Claude, twice a year** (set up after 0.7). Reads Supabase's pricing page for changes, compares the app's library version with the latest release, checks GitHub security alerts, adds a dated line to the upkeep log, and sends you a short summary. To be tested to confirm a scheduled run can reach the repository and the web.
 

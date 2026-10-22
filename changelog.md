@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.5.1 (Oct 22, 2026)
+Notes on what to do if the database pauses, alerts for the Supabase library, and a document explaining how access works.
+
 ## 0.5 (Oct 22, 2026)
 Notes and tasks now sync between devices through a database, work offline, and are reached with an emailed access code.
 

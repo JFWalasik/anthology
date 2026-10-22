@@ -1,5 +1,24 @@
 # Changelog (detailed)
 
+## 0.5.1 (Oct 22, 2026)
+
+Added
+- README section "Important: the database can pause": how to keep it awake, which email to look for, and step-by-step resuming
+- package.json naming the Supabase library and version, so GitHub's Dependabot can send security alerts (alerts were already switched on for the repository)
+- docs/access-decisions.md, "Access options and decisions": why a database, why Supabase, every access option considered, and why codes come from a dedicated Gmail account
+
+Changed
+- No keep-alive service, unlike the earlier plan; a cron-job.org check-in is now a low-priority enhancement
+- Removed the twice-yearly check that access codes still arrive; the access document covers what to do if they stop
+
+Why
+- Keeping maintenance low: normal use keeps the database active, Supabase warns by email about a week before pausing, and resuming takes two clicks for up to a year
+- GitHub's own scheduled checks were considered, but they switch themselves off in public repositories after 60 days without changes
+
+Notes for later
+- Plan updated to version 0.14 (0.13 removed the code check)
+- When updating the Supabase library: replace the copy in vendor/, and update the version in package.json, index.html and sw.js
+
 ## 0.5 (Oct 22, 2026)
 
 Added
