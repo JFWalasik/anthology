@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.16 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.17 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -50,7 +50,7 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 6. **0.6, Recently deleted.** Deleted folders, notes, task lists and single tasks can be restored for 30 days, on every device; after that they're erased, from the database too.
 7. **0.7, Read-only sharing and Settings and help (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); viewers see live updates without signing in; turn a link off or replace it. A Settings and help page (account, backups, a link to a separate Shared links page, and Help and About) takes over the crowded bottom of the sidebar.
    **0.7.1, Edit links.** The Share panel offers "Can view" or "Can edit". Anyone with an edit link can change the note or task list in their browser, without signing in; editing through a link needs a connection.
-8. **0.8, Export, search, and export reminder (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a reminder banner when an export is due.
+8. **0.8, Export, search, restore choices, and export reminder (MVP complete).** One "Export everything" ZIP file with every note and task list as Markdown (tasks as checklists), in separate Notes and Tasks folders, plus the backup file. Restore accepts the ZIP or the backup file, and offers "Add what's missing" (the default: only items you don't currently have come back, so an old backup can't overwrite newer work) or "Replace everything". Search across notes and tasks. A reminder banner when the last export is about six months old; "Not now" hides it for two weeks.
 9. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 Versions stay below 1.0 until the app feels solid enough for daily use without surprises.
@@ -68,6 +68,8 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 | "Invite someone" screen for the owner, adding an email to the allowed list without the Supabase dashboard | Setup | Oscar | Later | Small |
 | Email sending from a custom domain instead of the dedicated Gmail account, if a domain is ever added | Setup | Claude | Later | Small |
 | Daily keep-alive (cron-job.org), only if database pausing becomes a problem | Setup | Oscar | Low | Small |
+| Instant updates between devices and shared pages (Supabase Realtime); also look into why an open note sometimes doesn't update while watched (known issue from 0.7.2 testing) | Both | Oscar | Later | Medium |
+| Restore by picking and choosing: see what's in a backup (missing, changed, same) and tick what to bring back | Both | Claude | Later | Medium |
 | Short guide for people using the app, once others use it | Both | Oscar | Low | Small |
 | Distinct look for each side | Both | Oscar | Soon | Small |
 | Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks. A new color can be liked and saved as a favorite, so it comes up again and can be picked from a list of favorites (see docs/design.md) | Both | Oscar | Soon | Small to medium |
@@ -167,7 +169,7 @@ Most checks run automatically and only get in touch when something needs attenti
 ### Twice a year
 
 - [ ] **Read the summary.** Open the latest summary from the scheduled check. If anything is flagged, bring it to a chat.
-- [ ] **Export and back up.** When the export banner appears, run a full export in the app.
+- [ ] **Export and back up.** When the export banner appears, choose Export everything (Settings and help, Backups).
   - Open two or three notes and task lists in a plain text app, to confirm the contents look complete.
   - Store the export somewhere safe, such as a cloud drive folder.
 - [ ] **Review shared links (after 0.7).** In the app, open Settings and help, then Shared links, and turn off any no longer needed.
