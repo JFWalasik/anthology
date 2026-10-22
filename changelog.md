@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.6.1 (Oct 22, 2026)
+Recently deleted moved to the bottom of the sidebar, apart from your folders and notes.
+
 ## 0.6 (Oct 22, 2026)
 Recently deleted: anything deleted can be restored for 30 days, on every device. Syncing copes better with an unreliable connection.
 

@@ -381,9 +381,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---- Recently deleted ---- */
 
-.trash-row { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 6px; }
-.trash-row .row { border-radius: 6px; color: var(--ink-soft); }
-.trash-row.is-current .row { background: var(--accent-soft); color: var(--accent-ink); }
+.trash-link {
+  display: flex;
+  justify-content: space-between;
+  align-self: stretch;
+  margin: 0 -6px 4px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-align: left;
+}
+
+.trash-link:hover { background: var(--hover); }
+.trash-link.is-current { background: var(--accent-soft); color: var(--accent-ink); }
+.trash-count { color: var(--ink-muted); font-size: 13px; }
 
 .trash-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 

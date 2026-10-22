@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.6'; // must match the version in storage.js
+const APP_VERSION = '0.6.1'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -794,8 +794,13 @@ function renderSidebar() {
     rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder));
   }
   for (const item of itemsIn(null)) rows.push(itemRow(item));
-  rows.push(trashRow());
   els.tree.replaceChildren(...rows);
+
+  // Recently deleted sits at the bottom of the sidebar, apart from the folders.
+  els.trashCount.textContent = state.trash.length ? String(state.trash.length) : '';
+  els.trashLink.classList.toggle('is-current', state.showingTrash);
+  if (state.showingTrash) els.trashLink.setAttribute('aria-current', 'true');
+  else els.trashLink.removeAttribute('aria-current');
 
   const active = findFolder(view().activeFolderId);
   const what = `New ${side().plural}`;
@@ -933,18 +938,6 @@ async function openTrash() {
   await leaveCurrentItem();
   state.showingTrash = true;
   render();
-}
-
-function trashRow() {
-  const li = el('li', 'trash-row');
-  const open = button('row', undefined, undefined, openTrash);
-  if (state.showingTrash) {
-    li.classList.add('is-current');
-    open.setAttribute('aria-current', 'true');
-  }
-  open.append(el('span', 'item-title', 'Recently deleted'), el('span', 'item-date', String(state.trash.length)));
-  li.append(open);
-  return li;
 }
 
 const TRASH_KIND = { folders: 'Folder', notes: 'Note', taskLists: 'Task list', tasks: 'Task' };
@@ -1309,6 +1302,7 @@ function wireEvents() {
   byId('back-button').addEventListener('click', goBack);
   byId('trash-back').addEventListener('click', goBack);
   els.trashEmpty.addEventListener('click', emptyTrash);
+  els.trashLink.addEventListener('click', openTrash);
   byId('sign-out').addEventListener('click', signOut);
   window.addEventListener('popstate', handlePopState);
 
@@ -1422,6 +1416,8 @@ async function init() {
     trashList: byId('trash-list'),
     trashNone: byId('trash-none'),
     trashEmpty: byId('trash-empty'),
+    trashLink: byId('trash-link'),
+    trashCount: byId('trash-count'),
     syncStatus: byId('sync-status'),
     accountEmail: byId('account-email'),
     access: byId('access'),

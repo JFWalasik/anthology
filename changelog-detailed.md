@@ -1,10 +1,18 @@
 # Changelog (detailed)
 
+## 0.6.1 (Oct 22, 2026)
+
+Changed
+- The Recently deleted link moved from the end of the folder list to the bottom section of the sidebar, above the sync status and email
+
+Why
+- At the end of the folder list it looked like one of your folders or notes
+
 ## 0.6 (Oct 22, 2026)
 
 Added
 - Recently deleted, at the bottom of the sidebar on both sides: deleted folders, notes, task lists and single tasks can be restored for 30 days, with Restore, Delete now, and Empty
-- Restoring a folder brings back what was deleted with it; restoring a note or task whose folder or list was also deleted brings that back too
+- Restoring a folder brings back what was deleted with it. Restoring a note from a deleted folder brings the folder back too, and restoring a task from a deleted task list brings the list back
 - Deletions and restores reach every device; after 30 days, items are erased from the database too (each device checks about once a day)
 - A version check: if a browser briefly loads a mix of old and new files after an update, the app reloads once to get a matching set
 

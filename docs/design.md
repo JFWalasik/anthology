@@ -55,7 +55,7 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The phone's own back gesture does the same. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
 
 - Access screen: when no one is signed in, the app shows a single centered box: "Enter your email to get an access code", then "A code is on its way to … Enter it here", with "Send a new code" and "Use a different email". The Notes/Tasks toggle is hidden until someone is in.
-- Recently deleted: a row at the bottom of the sidebar list, with a count, on both sides. It opens a page listing everything deleted in the last 30 days, newest first. Each entry shows its title and a line such as "Folder · with 2 notes · deleted Oct 22 · 30 days left", with Restore and Delete now. Things deleted as part of a folder or list are counted under it rather than listed separately. On phones it opens as its own screen with "‹ Back".
+- Recently deleted: a link in the bottom section of the sidebar, above the sync status and email, with a count, on both sides. It sits apart from the folders so it doesn't look like one of them. It opens a page listing everything deleted in the last 30 days, newest first. Each entry shows its title and a line such as "Folder · with 2 notes · deleted Oct 22 · 30 days left", with Restore and Delete now. Things deleted as part of a folder or list are counted under it rather than listed separately. On phones it opens as its own screen with "‹ Back".
 - The sidebar footer shows the sync status ("All changes synced", "Syncing…", or the offline message), the signed-in email with "Sign out", and the backup links.
 
 ## App icon
@@ -67,7 +67,7 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 - Each note has a title line and a body, saved as one piece of text with the title as the first line. Enter in the title moves to the body.
 - With a mouse, Rename and Delete appear when hovering over a folder, and Delete when hovering over a note or task list. Touch screens have no hover, so each row shows a "⋯" button instead, which opens a short menu with the same choices.
 - Deleting a note, task list or folder asks "Are you sure? … You can restore it from Recently deleted for 30 days." Single tasks delete without asking, with a 10-second Undo. Blank notes and tasks are discarded without asking and don't go to Recently deleted. "Delete now" and "Empty" in Recently deleted still warn "There is no way to retrieve this."
-- Restoring a task or note whose list or folder was also deleted brings the list or folder back too; the list's or folder's other contents stay in Recently deleted, each listed on its own.
+- Restoring a note from a deleted folder brings the folder back too, so the note has somewhere to go. Likewise, restoring a task from a deleted task list brings the list back. The folder's or list's other contents stay in Recently deleted, each listed on its own.
 - Saving is automatic; a small "Saved" label confirms it.
 - Tasks: Enter in "Add a task" adds the task and stays ready for the next. Enter in a task starts a new one right below it. Backspace in an empty task removes it. Blank tasks are cleared when you leave them. Checking a task crosses it out and moves it below the open ones.
 - Reordering tasks: drag by the handle (⋮⋮) on the left, with a mouse or a finger, or use ↑ and ↓ (on hover with a mouse, in the "⋯" menu on touch screens). The handle is always visible on touch screens. Tasks move within their own group, open or completed.
@@ -77,6 +77,7 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 
 Newest first.
 
+- **Oct 22, 2026.** Recently deleted link moved to the bottom section of the sidebar (0.6.1), so it reads as separate from your folders and notes.
 - **Oct 22, 2026.** Recently deleted (0.6): one combined list for both sides, kept for 30 days.
 
 - **Oct 22, 2026.** Access screen and sync status added (0.5). Wording uses "access" rather than "sign in" where people see it, except for "Sign out".
