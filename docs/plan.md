@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.14 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.15 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -30,7 +30,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
 | Folders | One level in the MVP, nesting planned; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
-| Sharing | Read-only links, no sign-in for viewers, first after the MVP (0.7) | Moderate-high | Lowest friction for viewers; edit sharing and co-editing kept in mind |
+| Sharing | Read-only links, no sign-in for viewers, at 0.7 | Moderate-high | Lowest friction for viewers; edit sharing and co-editing kept in mind |
 | Code home | Personal GitHub repository, public | Moderate | Simplest; can move to an organization later |
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
 | Export | Included in the MVP | High | Insurance against every other decision |
@@ -39,7 +39,7 @@ One Supabase limit to know about: [free projects pause after a week of low datab
 
 ## Phase plan
 
-The MVP is complete at version 0.6, when the app syncs between phone and computer and can export everything. Sharing follows at 0.7.
+The MVP is complete at version 0.8, when the app syncs between phone and computer, protects against accidental deletes, can share, and can export everything. Recently deleted comes first (0.6), because since sync a delete on one device reaches every device.
 
 1. **0.1, Setup.** Claude Code opened in the desktop app, a project folder on the laptop, and the GitHub repository created and linked to it, with secret scanning and CodeQL code checking turned on, and GitHub connected for phone sessions (see Working from your phone). Starter files added: README, CLAUDE.md with the project principles and working preferences, an ignore list, the two changelogs, an upkeep log, and this plan.
 2. **0.2, Notes basics.** Notes/Tasks toggle, sidebar with one level of folders, create, edit, delete, autosave, first line as title. Saved in the browser only, as a short stepping stone to settle the look and feel. The saving code is kept in one place so it can be swapped for sync.
@@ -47,15 +47,16 @@ The MVP is complete at version 0.6, when the app syncs between phone and compute
 4. **0.4, Hosting and phone layout.** Hosted on GitHub Pages, so the app can be tried on a phone and added to the home screen. Each device still keeps its own notes; nothing syncs yet.
 5. **0.5, Sync, offline editing, and sign-in.** Supabase database with access rules and sign-in by email code, so notes and tasks follow you between phone and computer. Changes are saved on the device first and sent when there's a connection, so the app works fully offline; if the same item changes on two devices, the later change wins. Separate accounts per person, with each person's copy on a shared device kept apart and cleared on sign-out. Sign-up limited to an allowed list of emails. Existing notes on a device can be uploaded at first sign-in.
    **0.5.1, Pause notes and library alerts.** No keep-alive service for now: normal use keeps the database active, and Supabase emails a warning before pausing. The README explains what can happen and what to do. Dependabot library alerts watch the Supabase library, listed in package.json.
-6. **0.6, Export, search, and recently deleted (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a recently deleted folder so deletes can be undone, including single tasks; a reminder banner when an export is due.
+6. **0.6, Recently deleted.** Deleted folders, notes, task lists and single tasks can be restored for 30 days, on every device; after that they're erased, from the database too.
 7. **0.7, Read-only sharing (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); turn a link off or replace it.
-8. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
+8. **0.8, Export, search, and export reminder (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a reminder banner when an export is due.
+9. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 Versions stay below 1.0 until the app feels solid enough for daily use without surprises.
 
 ## Enhancements, prioritized
 
-Read-only sharing comes first after the MVP, as version 0.7 in the phase plan. After that, nested folders, moving items between folders, and a custom domain look like the next candidates. All priorities and sizes here are tentative and speculative for now, meant to be re-sorted at each version; items Claude suggested are marked so they can be weighed accordingly.
+Read-only sharing is version 0.7 in the phase plan. After the MVP, the next candidates in Oscar's order are nested folders, moving items into folders (to be clarified: dragging onto folders in the sidebar, or moving tasks between lists), pinned items, and subtasks. All priorities and sizes here are tentative and speculative for now, meant to be re-sorted at each version; items Claude suggested are marked so they can be weighed accordingly.
 
 | Enhancement | Side | Raised by | Priority | Size |
 | --- | --- | --- | --- | --- |
@@ -137,8 +138,8 @@ Changes made from the phone appear in the live app only after they're merged.
 - [x] App name: Anthology, as a working title. No conflicting notes or task apps found.
 - [x] Email in project history: usual address for now.
 - [x] License: none for now.
-- [ ] Custom domain: waiting for now; revisit just before 0.7 (see hosting notes). Roughly $10 to $20 a year and about an hour of setup.
-- [x] Recently deleted folder: moved into the MVP (0.6).
+- [ ] Custom domain: optional, not planned. Shared links will use the github.io address and would break only if the app moved to another host (see hosting notes). Roughly $10 to $20 a year and about an hour of setup if ever wanted.
+- [x] Recently deleted folder: first, as 0.6, ahead of sharing (0.7) and export and search (0.8).
 - [x] Sharing at 0.7: single notes and task lists first; whole folders later.
 - [x] Where this plan lives: in the repository as docs/plan.md, the single source of truth.
 - [x] Keep-alive for Supabase pausing: none for now (decided at 0.5.1). Normal use keeps the database active, Supabase emails a warning before pausing, and the README explains what to do. A cron-job.org check-in is on the enhancements list if needed.
@@ -158,8 +159,8 @@ Most checks run automatically and only get in touch when something needs attenti
 - **Supabase pause emails** (built in). Supabase emails the owner about a week before pausing the database, and again once paused. The README explains what to do.
 - **GitHub secret scanning** (turned on when the repository is created). Blocks saving changes that contain recognized keys. CodeQL, turned on at the same time, checks the code for common security problems once there is code to check. Whether it recognizes Supabase keys is to be confirmed at setup.
 - **Library security alerts** (set up at 0.5.1). GitHub's Dependabot emails if the Supabase library has a known security problem, using package.json, a small file that names the library and its version. When updating the library, replace the copy in vendor/ and update the version in package.json and index.html.
-- **Export reminder** (built into the app at 0.6). A banner appears when the last export is about six months old.
-- **Scheduled check by Claude, twice a year** (set up after 0.7). Reads Supabase's pricing page for changes, compares the app's library version with the latest release, checks GitHub security alerts, adds a dated line to the upkeep log, and sends you a short summary. To be tested to confirm a scheduled run can reach the repository and the web.
+- **Export reminder** (built into the app at 0.8). A banner appears when the last export is about six months old.
+- **Scheduled check by Claude, twice a year** (set up after 0.8). Reads Supabase's pricing page for changes, compares the app's library version with the latest release, checks GitHub security alerts, adds a dated line to the upkeep log, and sends you a short summary. To be tested to confirm a scheduled run can reach the repository and the web.
 
 ### Twice a year
 
