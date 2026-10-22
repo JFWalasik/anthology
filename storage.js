@@ -30,6 +30,7 @@ const Storage = (() => {
   const SYNC_EVERY_MS = 60 * 1000;
   const RETRY_MS = 30 * 1000;
   const PAGE_SIZE = 1000;
+  const KEEP_DELETED_MS = 30 * 24 * 60 * 60 * 1000; // Recently deleted keeps items for 30 days
 
   const KINDS = ['folders', 'notes', 'taskLists', 'tasks'];
   const TABLE = { folders: 'folders', notes: 'notes', taskLists: 'task_lists', tasks: 'tasks' };
@@ -91,13 +92,15 @@ const Storage = (() => {
   const outboxKey = () => `anthology.u.${user.id}.outbox`;
   const prefsKey = () => (user ? `anthology.u.${user.id}.prefs` : 'anthology.prefs');
 
+  // trash holds recently deleted records: { kind, record, deletedAt }.
   function emptyData() {
-    return { folders: [], notes: [], taskLists: [], tasks: [], pulledAt: {} };
+    return { folders: [], notes: [], taskLists: [], tasks: [], trash: [], pulledAt: {} };
   }
 
   function readLocal() {
     const data = readJSON(dataKey(), null) || emptyData();
     for (const kind of KINDS) data[kind] = data[kind] || [];
+    data.trash = data.trash || [];
     data.pulledAt = data.pulledAt || {};
     return data;
   }
@@ -113,15 +116,14 @@ const Storage = (() => {
   }
 
   // Adds changes to the outbox. A later change to the same record replaces an
-  // earlier one that hasn't been sent yet.
+  // earlier one that hasn't been sent yet. "erase" removes the record from the
+  // database entirely, rather than marking it deleted.
   function queue(changes) {
     const outbox = readOutbox();
-    for (const { kind, record, deleted } of changes) {
-      outbox[`${kind}:${record.id}`] = {
-        kind,
-        row: { ...toRow[kind](record), deleted },
-        stamp: `${Date.now()}-${Math.random()}`,
-      };
+    for (const { kind, record, deleted, erase } of changes) {
+      outbox[`${kind}:${record.id}`] = erase
+        ? { kind, erase: true, id: record.id, stamp: `${Date.now()}-${Math.random()}` }
+        : { kind, row: { ...toRow[kind](record), deleted }, stamp: `${Date.now()}-${Math.random()}` };
     }
     writeOutbox(outbox);
     scheduleSync();
@@ -135,14 +137,23 @@ const Storage = (() => {
     queue(records.map(record => ({ kind, record, deleted: false })));
   }
 
-  // Removes records from the device and queues "deleted" marks for the database.
-  function remove(data, kind, ids, changes) {
-    const now = Date.now();
+  // Removes records from the device. Normally they go to Recently deleted and
+  // the database marks them deleted; "discard" (for blank notes and tasks that
+  // were never really used) erases them instead. Everything removed together
+  // shares one deletion time, which is how a folder is later restored along
+  // with its contents.
+  function remove(data, kind, ids, changes, { now, discard = false }) {
     for (const id of ids) {
       const record = data[kind].find(r => r.id === id);
       if (!record) continue;
       data[kind] = data[kind].filter(r => r.id !== id);
-      changes.push({ kind, record: { ...record, updatedAt: now }, deleted: true });
+      if (discard) {
+        changes.push({ kind, record, erase: true });
+      } else {
+        data.trash = data.trash.filter(e => !(e.kind === kind && e.record.id === id));
+        data.trash.push({ kind, record: { ...record }, deletedAt: now });
+        changes.push({ kind, record: { ...record, updatedAt: now }, deleted: true });
+      }
     }
   }
 
@@ -258,8 +269,9 @@ const Storage = (() => {
         }
         await push();
         const changed = await pull();
+        const expired = await eraseExpired();
         setStatus(hasUnsynced() ? 'pending' : 'synced');
-        if (changed) emit('change');
+        if (changed || expired) emit('change');
       } catch (err) {
         console.error('Sync failed; will try again', err);
         setStatus(navigator.onLine ? 'error' : 'offline');
@@ -282,8 +294,16 @@ const Storage = (() => {
       const ofKind = entries.filter(([, entry]) => entry.kind === kind);
       for (let start = 0; start < ofKind.length; start += 500) {
         const chunk = ofKind.slice(start, start + 500);
-        const { error } = await client.from(TABLE[kind]).upsert(chunk.map(([, entry]) => entry.row));
-        if (error) throw error;
+        const saves = chunk.filter(([, entry]) => !entry.erase).map(([, entry]) => entry.row);
+        const erases = chunk.filter(([, entry]) => entry.erase).map(([, entry]) => entry.id);
+        if (saves.length) {
+          const { error } = await client.from(TABLE[kind]).upsert(saves);
+          if (error) throw error;
+        }
+        if (erases.length) {
+          const { error } = await client.from(TABLE[kind]).delete().in('id', erases);
+          if (error) throw error;
+        }
         const outbox = readOutbox();
         for (const [key, entry] of chunk) {
           if (outbox[key] && outbox[key].stamp === entry.stamp) delete outbox[key];
@@ -305,8 +325,6 @@ const Storage = (() => {
         let query = client.from(TABLE[kind]).select('*').order('synced_at').range(from, from + PAGE_SIZE - 1);
         // A few seconds of overlap, so nothing saved at the same moment is missed.
         if (since) query = query.gt('synced_at', new Date(new Date(since).getTime() - 5000).toISOString());
-        // The very first time, deleted records only matter if the device has something to delete.
-        else if (before[kind].length === 0) query = query.eq('deleted', false);
         const { data: rows, error } = await query;
         if (error) throw error;
         fetched[kind].push(...rows);
@@ -324,14 +342,25 @@ const Storage = (() => {
         if (!data.pulledAt[kind] || row.synced_at > data.pulledAt[kind]) data.pulledAt[kind] = row.synced_at;
         if (outbox[`${kind}:${row.id}`]) continue; // this device has a newer change on its way
         const index = data[kind].findIndex(r => r.id === row.id);
+        const inTrash = data.trash.findIndex(e => e.kind === kind && e.record.id === row.id);
+        const record = fromRow[kind](row);
         if (row.deleted) {
+          // Deleted on another device: move it to Recently deleted here too.
           if (index !== -1) {
             data[kind].splice(index, 1);
             changed = true;
           }
+          if (inTrash === -1 && row.updated_at > Date.now() - KEEP_DELETED_MS) {
+            data.trash.push({ kind, record, deletedAt: row.updated_at });
+            changed = true;
+          }
           continue;
         }
-        const record = fromRow[kind](row);
+        if (inTrash !== -1) {
+          // Restored on another device.
+          data.trash.splice(inTrash, 1);
+          changed = true;
+        }
         if (index === -1) {
           data[kind].push(record);
           changed = true;
@@ -375,52 +404,181 @@ const Storage = (() => {
     put('folders', [{ ...folder, updatedAt: Date.now() }]);
   }
 
-  function removeAndQueue(build) {
+  // Runs build(data, changes, how) against the device's copy, saves it, and
+  // queues the changes.
+  function removeAndQueue(build, discard = false) {
     const data = readLocal();
     const changes = [];
-    build(data, changes);
+    build(data, changes, { now: Date.now(), discard });
     writeLocal(data);
     queue(changes);
   }
 
-  async function deleteNote(id) {
-    removeAndQueue((data, changes) => remove(data, 'notes', [id], changes));
+  // The delete functions below send items to Recently deleted. With
+  // discard = true (blank notes and tasks), they're erased instead.
+
+  async function deleteNote(id, discard = false) {
+    removeAndQueue((data, changes, how) => remove(data, 'notes', [id], changes, how), discard);
   }
 
-  async function deleteTask(id) {
-    removeAndQueue((data, changes) => remove(data, 'tasks', [id], changes));
+  async function deleteTask(id, discard = false) {
+    removeAndQueue((data, changes, how) => remove(data, 'tasks', [id], changes, how), discard);
   }
 
   // Deleting a task list also deletes its tasks.
-  async function deleteTaskList(id) {
-    removeAndQueue((data, changes) => {
-      remove(data, 'tasks', data.tasks.filter(t => t.listId === id).map(t => t.id), changes);
-      remove(data, 'taskLists', [id], changes);
-    });
+  async function deleteTaskList(id, discard = false) {
+    removeAndQueue((data, changes, how) => {
+      remove(data, 'tasks', data.tasks.filter(t => t.listId === id).map(t => t.id), changes, how);
+      remove(data, 'taskLists', [id], changes, how);
+    }, discard);
   }
 
   // Deleting a folder also deletes the notes and task lists in it.
   async function deleteFolder(id) {
-    removeAndQueue((data, changes) => {
+    removeAndQueue((data, changes, how) => {
       const listIds = data.taskLists.filter(l => l.folderId === id).map(l => l.id);
-      remove(data, 'tasks', data.tasks.filter(t => listIds.includes(t.listId)).map(t => t.id), changes);
-      remove(data, 'taskLists', listIds, changes);
-      remove(data, 'notes', data.notes.filter(n => n.folderId === id).map(n => n.id), changes);
-      remove(data, 'folders', [id], changes);
+      remove(data, 'tasks', data.tasks.filter(t => listIds.includes(t.listId)).map(t => t.id), changes, how);
+      remove(data, 'taskLists', listIds, changes, how);
+      remove(data, 'notes', data.notes.filter(n => n.folderId === id).map(n => n.id), changes, how);
+      remove(data, 'folders', [id], changes, how);
     });
   }
 
-  // Restoring a backup replaces everything in the account. Restored records
-  // count as just changed, so they win over older copies on other devices.
+  // Restoring a backup replaces everything in the account. What it replaces
+  // goes to Recently deleted. Restored records count as just changed, so they
+  // win over older copies on other devices.
   async function replaceAll(incoming) {
-    removeAndQueue((data, changes) => {
+    removeAndQueue((data, changes, how) => {
       for (const kind of KINDS) {
         const keep = new Set(incoming[kind].map(r => r.id));
-        remove(data, kind, data[kind].filter(r => !keep.has(r.id)).map(r => r.id), changes);
+        remove(data, kind, data[kind].filter(r => !keep.has(r.id)).map(r => r.id), changes, how);
       }
     });
     const now = Date.now();
     for (const kind of KINDS) put(kind, incoming[kind].map(r => ({ ...r, updatedAt: now })));
+  }
+
+  // ---- Recently deleted ----
+
+  // True if trash entry e was deleted together with, and inside, entry parent
+  // (a folder or a task list).
+  function deletedWith(e, parent, trash) {
+    if (e === parent || e.deletedAt !== parent.deletedAt) return false;
+    if (parent.kind === 'folders') {
+      if (e.kind === 'notes' || e.kind === 'taskLists') return e.record.folderId === parent.record.id;
+      if (e.kind === 'tasks') {
+        const list = trash.find(x => x.kind === 'taskLists' && x.record.id === e.record.listId);
+        return Boolean(list) && deletedWith(list, parent, trash);
+      }
+    }
+    if (parent.kind === 'taskLists') return e.kind === 'tasks' && e.record.listId === parent.record.id;
+    return false;
+  }
+
+  const findEntry = (trash, kind, id) => trash.find(e => e.kind === kind && e.record.id === id);
+
+  // What Recently deleted shows: newest first, with things deleted as part of
+  // a folder or list counted under it rather than listed separately.
+  function listTrash() {
+    const data = readLocal();
+    const nameOf = (kind, id) => {
+      const record = data[kind].find(r => r.id === id) || findEntry(data.trash, kind, id)?.record;
+      if (!record) return null;
+      return kind === 'folders' ? record.name : record.title;
+    };
+    return data.trash
+      .filter(e => !data.trash.some(parent => deletedWith(e, parent, data.trash)))
+      .sort((a, b) => b.deletedAt - a.deletedAt)
+      .map(e => {
+        const inside = data.trash.filter(x => deletedWith(x, e, data.trash));
+        return {
+          kind: e.kind,
+          record: e.record,
+          deletedAt: e.deletedAt,
+          contains: {
+            notes: inside.filter(x => x.kind === 'notes').length,
+            taskLists: inside.filter(x => x.kind === 'taskLists').length,
+            tasks: inside.filter(x => x.kind === 'tasks').length,
+          },
+          parentName: e.kind === 'tasks'
+            ? nameOf('taskLists', e.record.listId)
+            : e.record.folderId ? nameOf('folders', e.record.folderId) : null,
+        };
+      });
+  }
+
+  // Puts an item back, with anything deleted along with it, and its folder or
+  // list if that was deleted too. Returns false if it can't be restored (a
+  // task whose list is gone for good).
+  async function restore(kind, id) {
+    const data = readLocal();
+    const entry = findEntry(data.trash, kind, id);
+    if (!entry) return true;
+    const picked = new Set([entry, ...data.trash.filter(e => deletedWith(e, entry, data.trash))]);
+
+    const bringBackFolder = record => {
+      if (!record.folderId || data.folders.some(f => f.id === record.folderId)) return;
+      const folder = findEntry(data.trash, 'folders', record.folderId);
+      if (folder) picked.add(folder);
+      else record.folderId = null; // its folder is gone for good: restore to the top level
+    };
+    if (kind === 'notes' || kind === 'taskLists') bringBackFolder(entry.record);
+    if (kind === 'tasks' && !data.taskLists.some(l => l.id === entry.record.listId)) {
+      const list = findEntry(data.trash, 'taskLists', entry.record.listId);
+      if (!list) return false;
+      picked.add(list);
+      bringBackFolder(list.record);
+    }
+
+    data.trash = data.trash.filter(e => !picked.has(e));
+    writeLocal(data);
+    const now = Date.now();
+    for (const k of KINDS) {
+      const records = [...picked].filter(e => e.kind === k).map(e => ({ ...e.record, updatedAt: now }));
+      if (records.length) put(k, records);
+    }
+    return true;
+  }
+
+  // Erases an item (and anything deleted along with it) for good.
+  async function eraseForever(kind, id) {
+    const data = readLocal();
+    const entry = findEntry(data.trash, kind, id);
+    if (!entry) return;
+    const gone = [entry, ...data.trash.filter(e => deletedWith(e, entry, data.trash))];
+    data.trash = data.trash.filter(e => !gone.includes(e));
+    writeLocal(data);
+    queue(gone.map(e => ({ kind: e.kind, record: e.record, erase: true })));
+  }
+
+  async function emptyTrash() {
+    const data = readLocal();
+    const gone = data.trash;
+    data.trash = [];
+    writeLocal(data);
+    queue(gone.map(e => ({ kind: e.kind, record: e.record, erase: true })));
+  }
+
+  // Erases anything deleted more than 30 days ago: from this device every
+  // time, and from the database about once a day.
+  async function eraseExpired() {
+    const cutoff = Date.now() - KEEP_DELETED_MS;
+    const data = readLocal();
+    const before = data.trash.length;
+    data.trash = data.trash.filter(e => e.deletedAt >= cutoff);
+    const changed = data.trash.length !== before;
+    if (changed) writeLocal(data);
+
+    if (!data.erasedAt || data.erasedAt < Date.now() - 24 * 60 * 60 * 1000) {
+      for (const kind of KINDS) {
+        const { error } = await client.from(TABLE[kind]).delete().eq('deleted', true).lt('updated_at', cutoff);
+        if (error) throw error;
+      }
+      const latest = readLocal();
+      latest.erasedAt = Date.now();
+      writeLocal(latest);
+    }
+    return changed;
   }
 
   // ---- Notes saved on this device before 0.5 ----
@@ -563,6 +721,7 @@ const Storage = (() => {
     onSignedOut: fn => listeners.signedOut.push(fn),
     loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
     saveFolder, deleteFolder, replaceAll,
+    listTrash, restore, eraseForever, emptyTrash,
     oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,
     makeBackup, parseBackup, loadPrefs, savePrefs,
   };

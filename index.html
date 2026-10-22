@@ -98,6 +98,20 @@
         </div>
       </section>
 
+      <section class="trash-pane" id="trash-pane" hidden>
+        <div class="editor-bar">
+          <button type="button" class="quiet back-button" id="trash-back">‹ Back</button>
+          <span class="item-location"></span>
+          <button type="button" class="quiet danger" id="trash-empty">Empty</button>
+        </div>
+        <div class="trash-body">
+          <h2 class="trash-heading">Recently deleted</h2>
+          <p class="trash-note">Deleted items can be restored for 30 days. After that they're erased for good.</p>
+          <ul class="trash-list" id="trash-list"></ul>
+          <p class="trash-none" id="trash-none">Nothing here right now.</p>
+        </div>
+      </section>
+
       <section class="empty-state" id="empty-state" hidden>
         <p id="empty-message"></p>
       </section>

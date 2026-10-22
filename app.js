@@ -7,6 +7,8 @@
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
+const CAN_RESTORE = 'You can restore it from Recently deleted for 30 days.';
+const KEEP_DAYS = 30;
 const NEW_FOLDER = 'new';
 const BACKUP_PICKER_ID = 'anthology-backups';
 const BACKUP_TYPES = [{ description: 'Anthology backup', accept: { 'application/json': ['.json'] } }];
@@ -51,6 +53,8 @@ const state = {
   side: 'notes',
   views: { notes: newView(), tasks: newView() },
   editingFolderId: null,    // folder whose name is being typed, or NEW_FOLDER
+  trash: [],                // what Recently deleted shows
+  showingTrash: false,      // true while Recently deleted is open
 };
 
 const els = {};
@@ -261,16 +265,18 @@ function touchList(listId) {
 
 // ---- Notes and task lists ----
 
-async function removeItem(item) {
+// Removes a note or task list. It goes to Recently deleted, unless discard is
+// true (for one left empty), which erases it.
+async function removeItem(item, discard = false) {
   cancelSave(`item:${item.id}`);
   if (state.side === 'notes') {
     state.notes = state.notes.filter(note => note.id !== item.id);
-    await runSave(() => Storage.deleteNote(item.id));
+    await runSave(() => Storage.deleteNote(item.id, discard));
   } else {
     for (const task of tasksIn(item.id)) cancelSave(`task:${task.id}`);
     state.taskLists = state.taskLists.filter(list => list.id !== item.id);
     state.tasks = state.tasks.filter(task => task.listId !== item.id);
-    await runSave(() => Storage.deleteTaskList(item.id));
+    await runSave(() => Storage.deleteTaskList(item.id, discard));
   }
 }
 
@@ -283,7 +289,7 @@ async function leaveCurrentItem() {
   if (state.side === 'tasks') {
     for (const task of tasksIn(item.id).filter(t => t.text.trim() === '')) await removeTaskQuietly(task);
   }
-  if (isEmptyItem(item)) await removeItem(item);
+  if (isEmptyItem(item)) await removeItem(item, true);
 }
 
 // ---- Phone screens and the back gesture ----
@@ -296,7 +302,7 @@ let ignoreNextPop = false;
 
 function syncHistory() {
   if (!phoneLayout.matches) return;
-  const onItem = Boolean(currentItem());
+  const onItem = Boolean(currentItem()) || state.showingTrash;
   const inHistory = history.state && history.state.anthology === 'item';
   if (onItem && !inHistory) {
     history.pushState({ anthology: 'item' }, '');
@@ -312,20 +318,26 @@ function handlePopState() {
     ignoreNextPop = false;
     return;
   }
-  if (currentItem()) goBack();
+  if (currentItem() || state.showingTrash) goBack();
 }
 
-// On phones, goes from an open item back to the list of folders and items.
+// On phones, goes from an open item (or Recently deleted) back to the list of
+// folders and items.
 async function goBack() {
-  await leaveCurrentItem();
-  view().currentId = null;
+  if (state.showingTrash) {
+    state.showingTrash = false;
+  } else {
+    await leaveCurrentItem();
+    view().currentId = null;
+  }
   savePrefs();
   render();
 }
 
 async function openItem(id) {
-  if (id === view().currentId) return;
+  if (id === view().currentId && !state.showingTrash) return;
   await leaveCurrentItem();
+  state.showingTrash = false;
   view().currentId = id;
   const item = currentItem();
   if (item) view().activeFolderId = item.folderId;
@@ -336,6 +348,7 @@ async function openItem(id) {
 
 async function createItem() {
   await leaveCurrentItem();
+  state.showingTrash = false;
   const now = Date.now();
   const base = { id: newId(), folderId: view().activeFolderId, createdAt: now, updatedAt: now };
   const item = state.side === 'notes'
@@ -353,7 +366,8 @@ async function createItem() {
 
 async function deleteItem(item) {
   if (!item) return;
-  if (!isEmptyItem(item)) {
+  const empty = isEmptyItem(item);
+  if (!empty) {
     let message;
     if (state.side === 'notes') {
       message = `Are you sure you want to delete "${noteTitle(item)}"?`;
@@ -362,10 +376,10 @@ async function deleteItem(item) {
       const contents = count === 0 ? '' : ` and its ${plural(count, 'task', 'tasks')}`;
       message = `Are you sure you want to delete the task list "${side().title(item)}"${contents}?`;
     }
-    if (!confirm(`${message} ${NO_RETRIEVE}`)) return;
+    if (!confirm(`${message} ${CAN_RESTORE}`)) return;
   }
   if (item.id === view().currentId) view().currentId = null;
-  await removeItem(item);
+  await removeItem(item, empty);
   savePrefs();
   render();
 }
@@ -419,16 +433,21 @@ async function addTask(list, text, afterTask = null) {
   return task;
 }
 
+// Removes a task. Blank tasks are discarded (erased); others go to Recently
+// deleted.
 async function removeTaskQuietly(task) {
   cancelSave(`task:${task.id}`);
   state.tasks = state.tasks.filter(t => t.id !== task.id);
-  await runSave(() => Storage.deleteTask(task.id));
+  const discard = task.text.trim() === '';
+  await runSave(() => Storage.deleteTask(task.id, discard));
   touchList(task.listId);
 }
 
 async function deleteTask(task) {
   await removeTaskQuietly(task);
   renderTasks();
+  refreshTrash();
+  renderSidebar();
   if (task.text.trim() !== '') showUndo(task);
 }
 
@@ -588,11 +607,7 @@ function hideUndo() {
 async function undoDelete() {
   const task = lastDeletedTask;
   hideUndo();
-  if (!task || !state.taskLists.some(list => list.id === task.listId)) return;
-  state.tasks.push(task);
-  await runSave(() => Storage.saveTask(task));
-  touchList(task.listId);
-  renderTasks();
+  if (task) await restoreDeleted('tasks', task.id);
 }
 
 // ---- Folders ----
@@ -638,7 +653,7 @@ async function deleteFolder(folder) {
   if (notes.length) parts.push(plural(notes.length, 'note', 'notes'));
   if (lists.length) parts.push(plural(lists.length, 'task list', 'task lists'));
   const contents = parts.length ? ` and its ${parts.join(' and ')}` : '';
-  if (!confirm(`Are you sure you want to delete the folder "${folder.name}"${contents}? ${NO_RETRIEVE}`)) return;
+  if (!confirm(`Are you sure you want to delete the folder "${folder.name}"${contents}? ${CAN_RESTORE}`)) return;
 
   await flushSaves();
   const listIds = new Set(lists.map(list => list.id));
@@ -723,7 +738,7 @@ async function restoreBackup(file) {
     `${plural(data.folders.length, 'folder', 'folders')}`;
   const ok = confirm(
     `Are you sure? Restoring replaces everything currently in Anthology with the ${summary} in this backup. ` +
-    `${NO_RETRIEVE} Download a backup first if you might want the current ones.`
+    `What it replaces goes to Recently deleted for 30 days.`
   );
   if (!ok) return;
   for (const pending of pendingSaves.values()) clearTimeout(pending.timer);
@@ -756,6 +771,7 @@ async function setSide(name) {
 // ---- Drawing the page ----
 
 function render() {
+  refreshTrash();
   renderSide();
   renderSidebar();
   renderMain();
@@ -777,6 +793,7 @@ function renderSidebar() {
     rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder));
   }
   for (const item of itemsIn(null)) rows.push(itemRow(item));
+  rows.push(trashRow());
   els.tree.replaceChildren(...rows);
 
   const active = findFolder(view().activeFolderId);
@@ -873,11 +890,14 @@ function folderNameInput(folder) {
 }
 
 function renderMain() {
-  const item = currentItem();
-  document.body.classList.toggle('has-item', Boolean(item)); // phones show the item screen
+  const trash = state.showingTrash;
+  const item = trash ? null : currentItem();
+  document.body.classList.toggle('has-item', Boolean(item) || trash); // phones show the item screen
+  els.trashPane.hidden = !trash;
   els.itemPane.hidden = !item;
-  els.emptyState.hidden = Boolean(item);
+  els.emptyState.hidden = Boolean(item) || trash;
   els.emptyMessage.textContent = side().emptyMessage;
+  if (trash) renderTrash();
   if (!item) return;
 
   els.titleInput.placeholder = side().titlePlaceholder;
@@ -900,6 +920,94 @@ function renderMain() {
     if (els.titleInput.value !== item.title) els.titleInput.value = item.title;
     renderTasks();
   }
+}
+
+// ---- Recently deleted ----
+
+function refreshTrash() {
+  state.trash = Storage.listTrash();
+}
+
+async function openTrash() {
+  await leaveCurrentItem();
+  state.showingTrash = true;
+  render();
+}
+
+function trashRow() {
+  const li = el('li', 'trash-row');
+  const open = button('row', undefined, undefined, openTrash);
+  if (state.showingTrash) {
+    li.classList.add('is-current');
+    open.setAttribute('aria-current', 'true');
+  }
+  open.append(el('span', 'item-title', 'Recently deleted'), el('span', 'item-date', String(state.trash.length)));
+  li.append(open);
+  return li;
+}
+
+const TRASH_KIND = { folders: 'Folder', notes: 'Note', taskLists: 'Task list', tasks: 'Task' };
+
+function trashTitle(entry) {
+  const r = entry.record;
+  if (entry.kind === 'folders') return r.name;
+  if (entry.kind === 'notes') return noteTitle(r);
+  if (entry.kind === 'taskLists') return r.title.trim() || 'New task list';
+  return r.text;
+}
+
+// For example "Folder · with 2 notes and 1 task list · deleted Oct 22 · 30 days left"
+function trashDetails(entry) {
+  const parts = [TRASH_KIND[entry.kind]];
+  const c = entry.contains;
+  const inside = [];
+  if (c.notes) inside.push(plural(c.notes, 'note', 'notes'));
+  if (c.taskLists) inside.push(plural(c.taskLists, 'task list', 'task lists'));
+  if (c.tasks && entry.kind === 'taskLists') inside.push(plural(c.tasks, 'task', 'tasks'));
+  if (inside.length) parts.push(`with ${inside.join(' and ')}`);
+  if (entry.parentName) parts.push(entry.kind === 'tasks' ? `from ${entry.parentName}` : `in ${entry.parentName}`);
+  const daysLeft = Math.max(0, Math.ceil((entry.deletedAt + KEEP_DAYS * 86400000 - Date.now()) / 86400000));
+  parts.push(`deleted ${formatDate(entry.deletedAt)}`, `${plural(daysLeft, 'day', 'days')} left`);
+  return parts.join(' · ');
+}
+
+function renderTrash() {
+  els.trashList.replaceChildren(...state.trash.map(entry => {
+    const li = el('li', 'trash-item');
+    const info = el('div', 'trash-info');
+    info.append(el('span', 'trash-title', trashTitle(entry)), el('span', 'trash-details', trashDetails(entry)));
+    const actions = el('div', 'trash-actions');
+    actions.append(
+      button('link', 'Restore', `Restore ${trashTitle(entry)}`, () => restoreDeleted(entry.kind, entry.record.id)),
+      button('quiet danger', 'Delete now', `Delete ${trashTitle(entry)} now`, () => eraseDeleted(entry))
+    );
+    li.append(info, actions);
+    return li;
+  }));
+  els.trashNone.hidden = state.trash.length > 0;
+  els.trashEmpty.hidden = state.trash.length === 0;
+}
+
+async function restoreDeleted(kind, id) {
+  const ok = await Storage.restore(kind, id);
+  if (!ok) {
+    alert("This task's list has been erased for good, so the task can't be restored.");
+    return;
+  }
+  Object.assign(state, await Storage.loadAll());
+  render();
+}
+
+async function eraseDeleted(entry) {
+  if (!confirm(`Delete "${trashTitle(entry)}" now? ${NO_RETRIEVE}`)) return;
+  await Storage.eraseForever(entry.kind, entry.record.id);
+  render();
+}
+
+async function emptyTrash() {
+  if (!confirm(`Delete everything in Recently deleted now? ${NO_RETRIEVE}`)) return;
+  await Storage.emptyTrash();
+  render();
 }
 
 function renderTasks() {
@@ -1108,6 +1216,7 @@ async function applyRemoteChanges() {
   state.notes = keep(data.notes, state.notes, 'item');
   state.taskLists = keep(data.taskLists, state.taskLists, 'item');
   state.tasks = keep(data.tasks, state.tasks, 'task');
+  refreshTrash();
   renderSide();
   renderSidebar();
   if (els.itemPane.contains(document.activeElement)) {
@@ -1146,13 +1255,13 @@ async function offerOldDeviceData() {
 async function clearOutEmpties() {
   for (const task of state.tasks.filter(t => t.text.trim() === '')) {
     state.tasks = state.tasks.filter(t => t !== task);
-    await runSave(() => Storage.deleteTask(task.id));
+    await runSave(() => Storage.deleteTask(task.id, true));
   }
   const startSide = state.side;
   for (const name of ['notes', 'tasks']) {
     state.side = name;
     for (const item of side().items().filter(i => isEmptyItem(i) && i.id !== view().currentId)) {
-      await removeItem(item);
+      await removeItem(item, true);
     }
   }
   state.side = startSide;
@@ -1197,6 +1306,8 @@ function wireEvents() {
   });
   byId('toast-undo').addEventListener('click', undoDelete);
   byId('back-button').addEventListener('click', goBack);
+  byId('trash-back').addEventListener('click', goBack);
+  els.trashEmpty.addEventListener('click', emptyTrash);
   byId('sign-out').addEventListener('click', signOut);
   window.addEventListener('popstate', handlePopState);
 
@@ -1306,6 +1417,10 @@ async function init() {
     toast: byId('toast'),
     toastText: byId('toast-text'),
     menu: byId('menu'),
+    trashPane: byId('trash-pane'),
+    trashList: byId('trash-list'),
+    trashNone: byId('trash-none'),
+    trashEmpty: byId('trash-empty'),
     syncStatus: byId('sync-status'),
     accountEmail: byId('account-email'),
     access: byId('access'),
