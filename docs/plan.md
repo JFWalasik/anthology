@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.15 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.16 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -30,7 +30,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
 | Folders | One level in the MVP, nesting planned; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
-| Sharing | Read-only links, no sign-in for viewers, at 0.7 | Moderate-high | Lowest friction for viewers; edit sharing and co-editing kept in mind |
+| Sharing | Links, no sign-in for viewers: view-only at 0.7, editable at 0.7.1. Shared items update live for viewers | Moderate-high | Lowest friction for viewers. Edit links are enough for two people for now; sharing with specific accounts and co-editing remain on the enhancements list |
 | Code home | Personal GitHub repository, public | Moderate | Simplest; can move to an organization later |
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
 | Export | Included in the MVP | High | Insurance against every other decision |
@@ -48,7 +48,8 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 5. **0.5, Sync, offline editing, and sign-in.** Supabase database with access rules and sign-in by email code, so notes and tasks follow you between phone and computer. Changes are saved on the device first and sent when there's a connection, so the app works fully offline; if the same item changes on two devices, the later change wins. Separate accounts per person, with each person's copy on a shared device kept apart and cleared on sign-out. Sign-up limited to an allowed list of emails. Existing notes on a device can be uploaded at first sign-in.
    **0.5.1, Pause notes and library alerts.** No keep-alive service for now: normal use keeps the database active, and Supabase emails a warning before pausing. The README explains what can happen and what to do. Dependabot library alerts watch the Supabase library, listed in package.json.
 6. **0.6, Recently deleted.** Deleted folders, notes, task lists and single tasks can be restored for 30 days, on every device; after that they're erased, from the database too.
-7. **0.7, Read-only sharing (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); turn a link off or replace it.
+7. **0.7, Read-only sharing and Settings and help (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); viewers see live updates without signing in; turn a link off or replace it. A Settings and help page (account, backups, a link to a separate Shared links page, and Help and About) takes over the crowded bottom of the sidebar.
+   **0.7.1, Edit links.** The Share panel offers "Can view" or "Can edit". Anyone with an edit link can change the note or task list in their browser, without signing in; editing through a link needs a connection.
 8. **0.8, Export, search, and export reminder (MVP complete).** Export notes and tasks as Markdown files in folders, with tasks as checklists; search across notes and tasks; a reminder banner when an export is due.
 9. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
@@ -74,7 +75,8 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 | Task priorities | Tasks | Claude | Soon | Small |
 | Pin notes to the top | Notes | Claude | Soon | Small |
 | Dark mode | Both | Claude | Soon | Small |
-| Edit sharing with specific people | Both | Oscar | Later | Large |
+| Edit sharing with specific people (shared items appear in each person's own app, with offline editing) | Both | Oscar | Later | Large |
+| "Save a copy to my Anthology" on a shared page | Both | Claude | Later | Small |
 | Formatting toolbar (rich text) | Notes | Oscar | Soon | Large |
 | Live co-editing | Both | Oscar | Later | Large |
 | Subtasks | Tasks | Claude | Later | Medium |
@@ -168,7 +170,7 @@ Most checks run automatically and only get in touch when something needs attenti
 - [ ] **Export and back up.** When the export banner appears, run a full export in the app.
   - Open two or three notes and task lists in a plain text app, to confirm the contents look complete.
   - Store the export somewhere safe, such as a cloud drive folder.
-- [ ] **Review share links (after 0.7).** In the app, open the list of active share links and turn off any no longer needed.
+- [ ] **Review shared links (after 0.7).** In the app, open Settings and help, then Shared links, and turn off any no longer needed.
 
 ### Once a year, only after a custom domain is added
 
