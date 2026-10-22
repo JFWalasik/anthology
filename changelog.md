@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.6 (Oct 22, 2026)
+Recently deleted: anything deleted can be restored for 30 days, on every device. Syncing copes better with an unreliable connection.
+
 ## 0.5.1 (Oct 22, 2026)
 Notes on what to do if the database pauses, alerts for the Supabase library, and a document explaining how access works.
 

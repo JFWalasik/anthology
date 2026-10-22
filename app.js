@@ -4,6 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
+const APP_VERSION = '0.6'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -1431,12 +1432,30 @@ async function init() {
     accessCode: byId('access-code'),
     accessMessage: byId('access-message'),
   });
+
+  // Right after an update, a browser can briefly load a mix of old and new
+  // files. If so, reload once to get a matching set.
+  if (Storage.version !== APP_VERSION) {
+    if (!sessionStorage.getItem('anthology.reloadedForUpdate')) {
+      sessionStorage.setItem('anthology.reloadedForUpdate', 'yes');
+      location.reload();
+      return;
+    }
+    showLoadError();
+    return;
+  }
+  sessionStorage.removeItem('anthology.reloadedForUpdate');
   wireEvents();
 
   // The offline helper (sw.js) only works when the app is served from a web
-  // address, not when index.html is opened as a file.
+  // address, not when index.html is opened as a file. It's left off on the
+  // test copy (localhost), so testing always uses the latest files.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(err => console.error('Offline helper not set up', err));
+    if (location.hostname === 'localhost') {
+      navigator.serviceWorker.getRegistrations().then(all => all.forEach(r => r.unregister()));
+    } else {
+      navigator.serviceWorker.register('sw.js').catch(err => console.error('Offline helper not set up', err));
+    }
   }
 
   let user = null;

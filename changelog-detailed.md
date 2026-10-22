@@ -1,5 +1,35 @@
 # Changelog (detailed)
 
+## 0.6 (Oct 22, 2026)
+
+Added
+- Recently deleted, at the bottom of the sidebar on both sides: deleted folders, notes, task lists and single tasks can be restored for 30 days, with Restore, Delete now, and Empty
+- Restoring a folder brings back what was deleted with it; restoring a note or task whose folder or list was also deleted brings that back too
+- Deletions and restores reach every device; after 30 days, items are erased from the database too (each device checks about once a day)
+- A version check: if a browser briefly loads a mix of old and new files after an update, the app reloads once to get a matching set
+
+Changed
+- Delete warnings now say "You can restore it from Recently deleted for 30 days"
+- The task Undo now restores from Recently deleted
+- Blank notes and tasks are erased rather than kept
+- Restoring a backup sends what it replaces to Recently deleted
+- Syncing is more patient with a bad connection: each request to the database gets 8 seconds and one retry, and a whole sync attempt gives up after a minute and tries again 15 seconds later
+- The offline helper now uses its saved copies only when there's no connection at all, not when the connection is slow
+- The offline helper is switched off on the test copy (localhost), so testing always uses the latest files
+
+Fixed
+- "Syncing…" could get stuck indefinitely if a request to the database never got an answer
+
+Why
+- Since 0.5, a delete on one device reaches every device within a minute, so accidental deletes needed a safety net before anything else
+- In testing, about 1 in 20 requests to Supabase got no answer at all, both in the browser and from the command line; the cause (network or Supabase) is unknown
+- The offline helper's "use the saved copy if the network is slow" rule could serve old and new files together right after an update, which broke the app in testing
+
+Notes for later
+- "Delete now" on one device erases the item from the database, but another device may still list it in Recently deleted until its own 30 days are up; restoring it there would bring it back
+- When releasing a new version, update APP_VERSION in app.js and the version in storage.js together, and the cache name in sw.js
+- Tested: delete and restore of each kind of item, folders with contents, a task whose list was deleted, Undo, blank notes, deletes and restores from another device, Delete now, the 30-day clean-up (with backdated test records), and the screens at desktop and phone size. Not yet tested on a real phone
+
 ## 0.5.1 (Oct 22, 2026)
 
 Added

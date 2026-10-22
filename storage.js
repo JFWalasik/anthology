@@ -28,9 +28,11 @@ const Storage = (() => {
   const BACKUP_VERSION = 2;
   const SYNC_DELAY_MS = 1500;
   const SYNC_EVERY_MS = 60 * 1000;
-  const RETRY_MS = 30 * 1000;
+  const RETRY_MS = 15 * 1000;
   const PAGE_SIZE = 1000;
   const KEEP_DELETED_MS = 30 * 24 * 60 * 60 * 1000; // Recently deleted keeps items for 30 days
+  const REQUEST_TIMEOUT_MS = 8 * 1000;   // longest wait for one try of a request to the database
+  const SYNC_TIMEOUT_MS = 60 * 1000;     // longest wait for a whole sync attempt
 
   const KINDS = ['folders', 'notes', 'taskLists', 'tasks'];
   const TABLE = { folders: 'folders', notes: 'notes', taskLists: 'task_lists', tasks: 'tasks' };
@@ -82,6 +84,27 @@ const Storage = (() => {
 
   function writeJSON(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  // Now and then a request to the database gets no answer at all (seen in
+  // testing: about 1 in 20). So each request gives up after a few seconds and
+  // is tried once more. Every request the app makes is safe to repeat.
+  async function patientFetch(url, options = {}) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await fetch(url, { ...options, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      } catch (err) {
+        if (err.name !== 'TimeoutError' || attempt >= 2) throw err;
+      }
+    }
+  }
+
+  function withTimeout(promise, ms) {
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`No answer after ${ms / 1000} seconds`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
   function emit(event, value) {
@@ -162,6 +185,7 @@ const Storage = (() => {
   function connect() {
     client = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      global: { fetch: patientFetch },
     });
     client.auth.onAuthStateChange(event => {
       if (event === 'SIGNED_OUT' && user) emit('signedOut');
@@ -262,16 +286,22 @@ const Storage = (() => {
     syncRunning = (async () => {
       setStatus('syncing');
       try {
-        const { data } = await client.auth.getSession();
-        if (!data.session) {
+        // If an attempt takes too long, give up on it and try again later,
+        // rather than showing "Syncing…" forever.
+        const result = await withTimeout((async () => {
+          const { data } = await client.auth.getSession();
+          if (!data.session) return null;
+          await push();
+          const changed = await pull();
+          const expired = await eraseExpired();
+          return { changed, expired };
+        })(), SYNC_TIMEOUT_MS);
+        if (!result) {
           setStatus('offline');
           return;
         }
-        await push();
-        const changed = await pull();
-        const expired = await eraseExpired();
         setStatus(hasUnsynced() ? 'pending' : 'synced');
-        if (changed || expired) emit('change');
+        if (result.changed || result.expired) emit('change');
       } catch (err) {
         console.error('Sync failed; will try again', err);
         setStatus(navigator.onLine ? 'error' : 'offline');
@@ -714,6 +744,7 @@ const Storage = (() => {
   }
 
   return {
+    version: '0.6', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
