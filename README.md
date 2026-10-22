@@ -2,7 +2,17 @@
 
 Anthology is a browser-based notes and tasks app for personal use, built to last for years. One app holds both, with a toggle between the Notes side and the Tasks side.
 
-The live app is at https://jfwalasik.github.io/anthology/. On a phone, open it in Safari and choose Share, then Add to Home Screen. To get in, enter your email and the access code emailed to you; only emails on the allowed list can get in. Notes and tasks sync between devices and work offline.
+The live app is at https://jfwalasik.github.io/anthology/. To get in, enter your email and the access code emailed to you; only emails on the allowed list can get in. Notes and tasks sync between devices and work offline.
+
+## Adding Anthology to your phone's home screen
+
+Copy and send these steps to anyone who needs them:
+
+> **iPhone:** Open https://jfwalasik.github.io/anthology/ in Safari. Tap the Share button (the square with an arrow pointing up), scroll down, and tap Add to Home Screen, then Add. Open Anthology from the new icon and enter your email to get an access code.
+>
+> **Android:** Open https://jfwalasik.github.io/anthology/ in Chrome. Tap the menu (three dots, top right), then Add to Home screen or Install app, and confirm. Open Anthology from the new icon and enter your email to get an access code.
+
+On iPhone, the home-screen app signs in separately from Safari, so enter the access code in the home-screen app itself.
 
 ## Important: the database can pause
 
