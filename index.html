@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Anthology</title>
   <meta name="theme-color" content="#FBF8F3">
+  <meta name="robots" content="noindex">  <!-- keeps the app and shared pages out of search engines -->
   <!-- Name and icon used when the app is added to a phone's home screen -->
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="mobile-web-app-capable" content="yes">
@@ -56,18 +57,14 @@
         <ul class="tree" id="tree"></ul>
       </nav>
       <div class="sidebar-footer">
-        <button type="button" class="trash-link" id="trash-link">
+        <button type="button" class="footer-link" id="trash-link">
           <span>Recently deleted</span>
           <span class="trash-count" id="trash-count"></span>
         </button>
+        <button type="button" class="footer-link" id="settings-link">
+          <span>Settings and help</span>
+        </button>
         <p class="sync-status" id="sync-status" aria-live="polite"></p>
-        <p class="account">
-          <span id="account-email"></span>
-          <button type="button" class="link" id="sign-out">Sign out</button>
-        </p>
-        <button type="button" class="link" id="download-backup">Download backup</button>
-        <button type="button" class="link" id="restore-backup">Restore from backup</button>
-        <input type="file" id="restore-file" accept=".json,application/json" hidden>
       </div>
     </aside>
 
@@ -79,6 +76,7 @@
             <select id="item-folder" aria-label="Folder"></select>
           </span>
           <span class="save-status" id="save-status" aria-live="polite"></span>
+          <button type="button" class="quiet" id="share-item">Share</button>
           <button type="button" class="quiet danger" id="delete-item">Delete note</button>
         </div>
         <input type="text" class="title-input" id="title-input" aria-label="Title"
@@ -116,11 +114,103 @@
         </div>
       </section>
 
+      <section class="page-pane" id="settings-pane" hidden>
+        <div class="editor-bar">
+          <button type="button" class="quiet back-button page-back">‹ Back</button>
+        </div>
+        <div class="page-body">
+          <h2 class="page-heading">Settings and help</h2>
+
+          <section class="page-section">
+            <h3>Account</h3>
+            <p>Signed in as <span id="account-email"></span>.</p>
+            <p><button type="button" class="link" id="sign-out">Sign out</button></p>
+          </section>
+
+          <section class="page-section">
+            <h3>Backups</h3>
+            <p>A backup is one file with all your notes, task lists and folders. Restoring one replaces everything in
+              Anthology; what it replaces goes to Recently deleted for 30 days.</p>
+            <p class="page-actions">
+              <button type="button" class="link" id="download-backup">Download backup</button>
+              <button type="button" class="link" id="restore-backup">Restore from backup</button>
+            </p>
+            <input type="file" id="restore-file" accept=".json,application/json" hidden>
+          </section>
+
+          <section class="page-section">
+            <h3>Shared links</h3>
+            <p>See the notes and task lists you've shared, and turn links off.</p>
+            <p><button type="button" class="link" id="open-links">Shared links ›</button></p>
+          </section>
+
+          <section class="page-section help">
+            <h3>Help and About</h3>
+            <p>Anthology is a notes and tasks app, built to be simple and to last. The Notes/Tasks switch at the top
+              moves between your notes and your task lists; folders are shared by both.</p>
+            <h4>Adding Anthology to your home screen</h4>
+            <p><strong>iPhone:</strong> open Anthology in Safari, tap the Share button (the square with an arrow
+              pointing up), then Add to Home Screen. <strong>Android:</strong> open it in Chrome, tap the menu (three
+              dots), then Add to Home screen or Install app.</p>
+            <h4>Getting in on a new device</h4>
+            <p>Enter your email, then the 6-digit code emailed to you. On iPhone, enter the code in the home-screen
+              app itself, since it signs in separately from Safari.</p>
+            <h4>Syncing and working offline</h4>
+            <p>Changes are saved on your device straight away and sent to your other devices when there's a
+              connection. Without one, keep working; changes go up when you're back online. The bottom of the sidebar
+              shows the sync status.</p>
+            <h4>Recently deleted</h4>
+            <p>Deleted notes, task lists, folders and tasks can be restored for 30 days from Recently deleted, at the
+              bottom of the sidebar.</p>
+            <h4>Sharing</h4>
+            <p>Open a note or task list and choose Share to get a link. Anyone with the link can see it, without
+              signing in, and sees your changes as you make them. Turn links off under Shared links.</p>
+            <p class="about-version">Anthology version <span id="about-version"></span></p>
+          </section>
+        </div>
+      </section>
+
+      <section class="page-pane" id="links-pane" hidden>
+        <div class="editor-bar">
+          <button type="button" class="quiet back-button page-back">‹ Back</button>
+        </div>
+        <div class="page-body">
+          <p class="page-crumb"><button type="button" class="link" id="links-back">‹ Settings and help</button></p>
+          <h2 class="page-heading">Shared links</h2>
+          <p class="trash-note">Anyone with one of these links can see the item. Turning a link off stops it working.</p>
+          <p class="trash-note" id="links-message"></p>
+          <ul class="trash-list" id="links-list"></ul>
+        </div>
+      </section>
+
       <section class="empty-state" id="empty-state" hidden>
         <p id="empty-message"></p>
       </section>
     </main>
   </div>
+
+  <section class="viewer" id="viewer" hidden>
+    <article class="viewer-page">
+      <h2 class="viewer-title" id="viewer-title"></h2>
+      <div class="viewer-body" id="viewer-body"></div>
+      <ul class="viewer-tasks" id="viewer-tasks"></ul>
+      <p class="viewer-missing" id="viewer-missing" hidden></p>
+      <p class="viewer-footer">Shared from Anthology. This is a read-only copy; only its owner can change it.</p>
+    </article>
+  </section>
+
+  <dialog class="share-dialog" id="share-dialog">
+    <h2 id="share-heading">Share</h2>
+    <p id="share-explain"></p>
+    <input type="text" id="share-url" readonly aria-label="Link">
+    <div class="share-actions">
+      <button type="button" class="primary" id="share-send">Copy link</button>
+      <button type="button" class="link" id="share-new">Make a new link</button>
+      <button type="button" class="link danger" id="share-off">Turn off link</button>
+    </div>
+    <p class="share-message" id="share-message" aria-live="polite"></p>
+    <p class="share-close"><button type="button" class="quiet" id="share-close">Done</button></p>
+  </dialog>
 
   <div class="menu" id="menu" role="menu" hidden></div>
 

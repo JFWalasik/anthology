@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.6.1'; // must match the version in storage.js
+const APP_VERSION = '0.7'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -55,7 +55,7 @@ const state = {
   views: { notes: newView(), tasks: newView() },
   editingFolderId: null,    // folder whose name is being typed, or NEW_FOLDER
   trash: [],                // what Recently deleted shows
-  showingTrash: false,      // true while Recently deleted is open
+  page: null,               // a page open instead of an item: 'trash', 'settings' or 'links'
 };
 
 const els = {};
@@ -303,7 +303,7 @@ let ignoreNextPop = false;
 
 function syncHistory() {
   if (!phoneLayout.matches) return;
-  const onItem = Boolean(currentItem()) || state.showingTrash;
+  const onItem = Boolean(currentItem()) || Boolean(state.page);
   const inHistory = history.state && history.state.anthology === 'item';
   if (onItem && !inHistory) {
     history.pushState({ anthology: 'item' }, '');
@@ -319,14 +319,14 @@ function handlePopState() {
     ignoreNextPop = false;
     return;
   }
-  if (currentItem() || state.showingTrash) goBack();
+  if (currentItem() || state.page) goBack();
 }
 
 // On phones, goes from an open item (or Recently deleted) back to the list of
 // folders and items.
 async function goBack() {
-  if (state.showingTrash) {
-    state.showingTrash = false;
+  if (state.page) {
+    state.page = state.page === 'links' ? 'settings' : null;
   } else {
     await leaveCurrentItem();
     view().currentId = null;
@@ -336,9 +336,9 @@ async function goBack() {
 }
 
 async function openItem(id) {
-  if (id === view().currentId && !state.showingTrash) return;
+  if (id === view().currentId && !state.page) return;
   await leaveCurrentItem();
-  state.showingTrash = false;
+  state.page = null;
   view().currentId = id;
   const item = currentItem();
   if (item) view().activeFolderId = item.folderId;
@@ -349,7 +349,7 @@ async function openItem(id) {
 
 async function createItem() {
   await leaveCurrentItem();
-  state.showingTrash = false;
+  state.page = null;
   const now = Date.now();
   const base = { id: newId(), folderId: view().activeFolderId, createdAt: now, updatedAt: now };
   const item = state.side === 'notes'
@@ -798,9 +798,12 @@ function renderSidebar() {
 
   // Recently deleted sits at the bottom of the sidebar, apart from the folders.
   els.trashCount.textContent = state.trash.length ? String(state.trash.length) : '';
-  els.trashLink.classList.toggle('is-current', state.showingTrash);
-  if (state.showingTrash) els.trashLink.setAttribute('aria-current', 'true');
-  else els.trashLink.removeAttribute('aria-current');
+  for (const [link, pages] of [[els.trashLink, ['trash']], [els.settingsLink, ['settings', 'links']]]) {
+    const current = pages.includes(state.page);
+    link.classList.toggle('is-current', current);
+    if (current) link.setAttribute('aria-current', 'true');
+    else link.removeAttribute('aria-current');
+  }
 
   const active = findFolder(view().activeFolderId);
   const what = `New ${side().plural}`;
@@ -896,14 +899,16 @@ function folderNameInput(folder) {
 }
 
 function renderMain() {
-  const trash = state.showingTrash;
-  const item = trash ? null : currentItem();
-  document.body.classList.toggle('has-item', Boolean(item) || trash); // phones show the item screen
-  els.trashPane.hidden = !trash;
+  const page = state.page;
+  const item = page ? null : currentItem();
+  document.body.classList.toggle('has-item', Boolean(item) || Boolean(page)); // phones show the item screen
+  els.trashPane.hidden = page !== 'trash';
+  els.settingsPane.hidden = page !== 'settings';
+  els.linksPane.hidden = page !== 'links';
   els.itemPane.hidden = !item;
-  els.emptyState.hidden = Boolean(item) || trash;
+  els.emptyState.hidden = Boolean(item) || Boolean(page);
   els.emptyMessage.textContent = side().emptyMessage;
-  if (trash) renderTrash();
+  if (page === 'trash') renderTrash();
   if (!item) return;
 
   els.titleInput.placeholder = side().titlePlaceholder;
@@ -934,11 +939,14 @@ function refreshTrash() {
   state.trash = Storage.listTrash();
 }
 
-async function openTrash() {
+async function openPage(page) {
   await leaveCurrentItem();
-  state.showingTrash = true;
+  state.page = page;
   render();
+  if (page === 'links') loadLinks();
 }
+
+const openTrash = () => openPage('trash');
 
 const TRASH_KIND = { folders: 'Folder', notes: 'Note', taskLists: 'Task list', tasks: 'Task' };
 
@@ -1002,6 +1010,195 @@ async function emptyTrash() {
   if (!confirm(`Delete everything in Recently deleted now? ${NO_RETRIEVE}`)) return;
   await Storage.emptyTrash();
   render();
+}
+
+// ---- Sharing ----
+
+let shareLink = null; // the link shown in the Share panel
+
+function shareUrl(token) {
+  return `${location.origin}${location.pathname}#share=${token}`;
+}
+
+async function copyOrSend(url, title) {
+  // Phones open their own share menu (Messages, Mail and so on); computers copy the link.
+  if (navigator.share && phoneLayout.matches) {
+    try {
+      await navigator.share({ title, url });
+      return '';
+    } catch (err) {
+      if (err.name === 'AbortError') return '';
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    return 'Link copied.';
+  } catch {
+    return 'Select the link above and copy it.';
+  }
+}
+
+function showShareLink(link, message = '') {
+  shareLink = link;
+  els.shareUrl.value = link ? shareUrl(link.token) : '';
+  els.shareSend.hidden = !link;
+  els.shareNew.hidden = !link;
+  els.shareOff.hidden = !link;
+  els.shareMessage.textContent = message;
+}
+
+async function openSharePanel() {
+  const item = currentItem();
+  if (!item) return;
+  await flushSaves();
+  const noun = state.side === 'notes' ? 'note' : 'task list';
+  els.shareHeading.textContent = `Share this ${noun}`;
+  els.shareExplain.textContent = `Anyone with this link can see this ${noun}, and your changes as you make them. ` +
+    "They don't need to sign in, and they can't change it.";
+  els.shareSend.textContent = navigator.share && phoneLayout.matches ? 'Share link…' : 'Copy link';
+  showShareLink(null, 'Making a link…');
+  els.shareDialog.showModal();
+  try {
+    await Storage.sync(); // the item has to be in the database before it can be shared
+    const kind = state.side === 'notes' ? 'notes' : 'taskLists';
+    showShareLink(await Storage.getOrCreateShareLink(kind, item.id));
+  } catch (err) {
+    console.error(err);
+    showShareLink(null, shareProblem());
+  }
+}
+
+function shareProblem() {
+  return navigator.onLine
+    ? "Something went wrong and the link couldn't be made. Try again in a moment."
+    : "Sharing needs an internet connection. Try again when you're online.";
+}
+
+async function shareAction(action) {
+  if (!shareLink) return;
+  try {
+    if (action === 'send') {
+      showShareLink(shareLink, await copyOrSend(shareUrl(shareLink.token), els.shareHeading.textContent));
+    } else if (action === 'new') {
+      showShareLink(await Storage.replaceShareLink(shareLink), 'New link made. The old link no longer works.');
+    } else if (action === 'off') {
+      await Storage.turnOffShareLink(shareLink.token);
+      showShareLink(null, 'Link turned off. Choose Share again to make a new one.');
+    }
+  } catch (err) {
+    console.error(err);
+    els.shareMessage.textContent = shareProblem();
+  }
+}
+
+// The Shared links page: everything shared, with Copy link and Turn off.
+async function loadLinks() {
+  els.linksMessage.textContent = 'Loading…';
+  els.linksList.replaceChildren();
+  let links;
+  try {
+    links = await Storage.listShareLinks();
+  } catch (err) {
+    console.error(err);
+    els.linksMessage.textContent = 'Shared links need an internet connection.';
+    return;
+  }
+  if (state.page !== 'links') return;
+  els.linksMessage.textContent = links.length ? '' : "You haven't shared anything. Open a note or task list and choose Share.";
+  els.linksList.replaceChildren(...links.map(link => {
+    const isNote = link.item_kind === 'note';
+    const item = isNote ? state.notes.find(n => n.id === link.item_id) : state.taskLists.find(l => l.id === link.item_id);
+    const title = item ? (isNote ? noteTitle(item) : SIDES.tasks.title(item)) : 'Deleted item';
+    const details = [isNote ? 'Note' : 'Task list', link.can_edit ? 'can edit' : 'view only', `shared ${formatDate(Date.parse(link.created_at))}`];
+
+    const li = el('li', 'trash-item');
+    const info = el('div', 'trash-info');
+    info.append(el('span', 'trash-title', title), el('span', 'trash-details', details.join(' · ')));
+    const status = el('span', 'trash-details');
+    const actions = el('div', 'trash-actions');
+    actions.append(
+      button('link', 'Copy link', `Copy link to ${title}`, async () => {
+        status.textContent = await copyOrSend(shareUrl(link.token), title);
+      }),
+      button('quiet danger', 'Turn off', `Turn off link to ${title}`, async () => {
+        try {
+          await Storage.turnOffShareLink(link.token);
+          loadLinks();
+        } catch (err) {
+          console.error(err);
+          status.textContent = 'That needs an internet connection.';
+        }
+      })
+    );
+    info.append(status);
+    li.append(info, actions);
+    return li;
+  }));
+}
+
+// ---- The page someone sees when they open a shared link ----
+
+async function startViewer(token) {
+  document.body.classList.add('viewing');
+  els.layout.hidden = true;
+  els.access.hidden = true;
+  els.viewer.hidden = false;
+  const load = async () => {
+    let item;
+    try {
+      item = await Storage.getSharedItem(token);
+    } catch (err) {
+      console.error(err);
+      if (!els.viewerTitle.textContent) showViewerProblem("This link couldn't be opened. Check your connection and try again.");
+      return;
+    }
+    if (item) renderShared(item);
+    else showViewerProblem("This link isn't available. It may have been turned off, or the item deleted.");
+  };
+  await load();
+  // Show the owner's changes: check every 30 seconds, and when the page comes back into view.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') load();
+  }, 30 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') load();
+  });
+}
+
+function showViewerProblem(text) {
+  els.viewerTitle.textContent = '';
+  els.viewerBody.hidden = true;
+  els.viewerTasks.hidden = true;
+  els.viewerMissing.hidden = false;
+  els.viewerMissing.textContent = text;
+}
+
+function renderShared(item) {
+  els.viewerMissing.hidden = true;
+  if (item.kind === 'note') {
+    const { title, rest } = splitNote(item.body);
+    els.viewerTitle.textContent = title.replace(/^#+\s*/, '').trim() || 'Untitled note';
+    els.viewerBody.textContent = rest;
+    els.viewerBody.hidden = false;
+    els.viewerTasks.hidden = true;
+  } else {
+    els.viewerTitle.textContent = item.title.trim() || 'Untitled task list';
+    const ordered = [...item.tasks.filter(t => !t.done), ...item.tasks.filter(t => t.done)];
+    els.viewerTasks.replaceChildren(...ordered.map(task => {
+      const li = el('li', 'task');
+      li.classList.toggle('is-done', task.done);
+      const check = el('input');
+      check.type = 'checkbox';
+      check.checked = task.done;
+      check.disabled = true;
+      check.setAttribute('aria-label', task.done ? 'Done' : 'Not done');
+      li.append(check, el('span', 'task-text', task.text));
+      return li;
+    }));
+    els.viewerTasks.hidden = false;
+    els.viewerBody.hidden = true;
+  }
+  document.title = `${els.viewerTitle.textContent} · Anthology`;
 }
 
 function renderTasks() {
@@ -1303,6 +1500,16 @@ function wireEvents() {
   byId('trash-back').addEventListener('click', goBack);
   els.trashEmpty.addEventListener('click', emptyTrash);
   els.trashLink.addEventListener('click', openTrash);
+  els.settingsLink.addEventListener('click', () => openPage('settings'));
+  byId('open-links').addEventListener('click', () => openPage('links'));
+  byId('links-back').addEventListener('click', () => openPage('settings'));
+  for (const back of document.querySelectorAll('.page-back')) back.addEventListener('click', goBack);
+  byId('share-item').addEventListener('click', openSharePanel);
+  els.shareSend.addEventListener('click', () => shareAction('send'));
+  els.shareNew.addEventListener('click', () => shareAction('new'));
+  els.shareOff.addEventListener('click', () => shareAction('off'));
+  byId('share-close').addEventListener('click', () => els.shareDialog.close());
+  els.shareUrl.addEventListener('focus', () => els.shareUrl.select());
   byId('sign-out').addEventListener('click', signOut);
   window.addEventListener('popstate', handlePopState);
 
@@ -1418,6 +1625,25 @@ async function init() {
     trashEmpty: byId('trash-empty'),
     trashLink: byId('trash-link'),
     trashCount: byId('trash-count'),
+    settingsLink: byId('settings-link'),
+    settingsPane: byId('settings-pane'),
+    linksPane: byId('links-pane'),
+    linksList: byId('links-list'),
+    linksMessage: byId('links-message'),
+    aboutVersion: byId('about-version'),
+    shareDialog: byId('share-dialog'),
+    shareHeading: byId('share-heading'),
+    shareExplain: byId('share-explain'),
+    shareUrl: byId('share-url'),
+    shareSend: byId('share-send'),
+    shareNew: byId('share-new'),
+    shareOff: byId('share-off'),
+    shareMessage: byId('share-message'),
+    viewer: byId('viewer'),
+    viewerTitle: byId('viewer-title'),
+    viewerBody: byId('viewer-body'),
+    viewerTasks: byId('viewer-tasks'),
+    viewerMissing: byId('viewer-missing'),
     syncStatus: byId('sync-status'),
     accountEmail: byId('account-email'),
     access: byId('access'),
@@ -1441,6 +1667,21 @@ async function init() {
     return;
   }
   sessionStorage.removeItem('anthology.reloadedForUpdate');
+  els.aboutVersion.textContent = APP_VERSION;
+
+  // A shared link (…#share=CODE) shows just that item, without signing in.
+  if (location.hash.startsWith('#share=')) {
+    try {
+      Storage.connect();
+    } catch (err) {
+      console.error(err);
+      showLoadError();
+      return;
+    }
+    startViewer(decodeURIComponent(location.hash.slice('#share='.length)));
+    return;
+  }
+
   wireEvents();
 
   // The offline helper (sw.js) only works when the app is served from a web

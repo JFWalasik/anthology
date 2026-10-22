@@ -1,5 +1,30 @@
 # Changelog (detailed)
 
+## 0.7 (Oct 22, 2026)
+
+Added
+- Share, in the bar above an open note or task list: makes a private link (43 random characters after `#share=`), with Copy link (or the phone's share menu), Make a new link, and Turn off link
+- The shared page: no sign-in needed; shows the note, or the task list with locked checkboxes; says it's a read-only copy; picks up changes every 30 seconds and when brought back into view
+- Settings and help page: Account (email, Sign out), Backups (Download, Restore), Shared links, and Help and About with the version number
+- Shared links page: every active link, with Copy link and Turn off
+- supabase/002_sharing.sql: a share_links table (only the owner can see their links) and get_shared_item, the one function a signed-out visitor can call, which returns only the item a link points to
+- Search engines are asked not to list the app or shared pages
+
+Changed
+- Sign out, Download backup and Restore from backup moved from the sidebar into Settings and help; the sidebar bottom now has Recently deleted, Settings and help, and the sync status
+
+Fixed
+- (Found in testing) Sharing a task list sent the wrong item type and failed, with a message wrongly blaming the connection; the message now only mentions the connection when offline
+
+Why
+- Sharing makes Anthology minimally shareable; links are view-only for now, with edit links next (0.7.1)
+- The sidebar bottom had become crowded
+
+Notes for later
+- Deleting a shared item stops its link working; restoring the item makes it work again
+- A link to a deleted item stays in Shared links (as "Deleted item") until turned off
+- Tested: making, replacing and turning off links; signed-out access to the right item only, wrong codes returning nothing, and the tables still refused; live updates; deleted items; the pages at desktop and phone size. Not yet tested on a real phone
+
 ## 0.6.1 (Oct 22, 2026)
 
 Changed

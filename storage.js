@@ -611,6 +611,56 @@ const Storage = (() => {
     return changed;
   }
 
+  // ---- Sharing by link ----
+  // These talk to the database directly, so they need a connection. A link's
+  // code is 43 random characters, effectively impossible to guess.
+
+  const ITEM_KIND = { notes: 'note', taskLists: 'task_list' };
+
+  function newToken() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // Returns the item's current link of this kind, making one if needed.
+  async function getOrCreateShareLink(kind, itemId, canEdit = false) {
+    const { data, error } = await client.from('share_links').select('*')
+      .eq('item_id', itemId).eq('active', true).eq('can_edit', canEdit).limit(1);
+    if (error) throw error;
+    if (data.length) return data[0];
+    const link = { token: newToken(), item_kind: ITEM_KIND[kind], item_id: itemId, can_edit: canEdit };
+    const { error: insertError } = await client.from('share_links').insert(link);
+    if (insertError) throw insertError;
+    return link;
+  }
+
+  async function turnOffShareLink(token) {
+    const { error } = await client.from('share_links').update({ active: false }).eq('token', token);
+    if (error) throw error;
+  }
+
+  // Turns the old link off and makes a new one for the same item.
+  async function replaceShareLink(link) {
+    await turnOffShareLink(link.token);
+    const kind = link.item_kind === 'note' ? 'notes' : 'taskLists';
+    return getOrCreateShareLink(kind, link.item_id, link.can_edit);
+  }
+
+  async function listShareLinks() {
+    const { data, error } = await client.from('share_links').select('*')
+      .eq('active', true).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  // What a link shows. Works without signing in. Returns null if the link is
+  // off, or the item has been deleted.
+  async function getSharedItem(token) {
+    const { data, error } = await client.rpc('get_shared_item', { share_token: token });
+    if (error) throw error;
+    return data;
+  }
+
   // ---- Notes saved on this device before 0.5 ----
 
   // Returns counts if this device has notes from before sign-in that haven't
@@ -744,7 +794,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.6.1', // must match APP_VERSION in app.js
+    version: '0.7', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
@@ -753,6 +803,7 @@ const Storage = (() => {
     loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
     saveFolder, deleteFolder, replaceAll,
     listTrash, restore, eraseForever, emptyTrash,
+    getOrCreateShareLink, turnOffShareLink, replaceShareLink, listShareLinks, getSharedItem,
     oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,
     makeBackup, parseBackup, loadPrefs, savePrefs,
   };

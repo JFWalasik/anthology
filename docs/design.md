@@ -55,8 +55,13 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The phone's own back gesture does the same. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
 
 - Access screen: when no one is signed in, the app shows a single centered box: "Enter your email to get an access code", then "A code is on its way to … Enter it here", with "Send a new code" and "Use a different email". The Notes/Tasks toggle is hidden until someone is in.
-- Recently deleted: a link in the bottom section of the sidebar, above the sync status and email, with a count, on both sides. It sits apart from the folders so it doesn't look like one of them. It opens a page listing everything deleted in the last 30 days, newest first. Each entry shows its title and a line such as "Folder · with 2 notes · deleted Oct 22 · 30 days left", with Restore and Delete now. Things deleted as part of a folder or list are counted under it rather than listed separately. On phones it opens as its own screen with "‹ Back".
-- The sidebar footer shows the sync status ("All changes synced", "Syncing…", or the offline message), the signed-in email with "Sign out", and the backup links.
+- The bottom section of the sidebar has three lines, apart from the folders so they don't look like them: Recently deleted (with a count), Settings and help, and the sync status.
+- Recently deleted: on both sides. It opens a page listing everything deleted in the last 30 days, newest first. Each entry shows its title and a line such as "Folder · with 2 notes · deleted Oct 22 · 30 days left", with Restore and Delete now. Things deleted as part of a folder or list are counted under it rather than listed separately. On phones it opens as its own screen with "‹ Back".
+- The sync status reads "All changes synced", "Syncing…", or the offline message.
+- Settings and help: one page with sections for Account (email, Sign out), Backups (Download and Restore), Shared links (a link to its own page), and Help and About (short help topics and the version number). On phones it opens as its own screen with "‹ Back".
+- Shared links: its own page, reached from Settings and help, listing each active link with Copy link and Turn off.
+- Sharing: "Share" in the bar above an open note or task list opens a small panel with the link, "Copy link" (on phones, "Share link…" opens the phone's share menu), "Make a new link" and "Turn off link".
+- The shared page (what someone with a link sees): just the app name at the top, the title, and the note text or the task list with locked checkboxes, in the same Paper style. It ends with "Shared from Anthology. This is a read-only copy; only its owner can change it." It checks for changes every 30 seconds and when brought back into view.
 
 ## App icon
 
@@ -76,6 +81,8 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 ## Decision log
 
 Newest first.
+
+- **Oct 22, 2026.** Settings and help page, and sharing (0.7). Account and backup links moved off the crowded sidebar bottom into the new page. Shared links get their own page. Shared pages update live and say plainly that they're read-only.
 
 - **Oct 22, 2026.** Recently deleted link moved to the bottom section of the sidebar (0.6.1), so it reads as separate from your folders and notes.
 - **Oct 22, 2026.** Recently deleted (0.6): one combined list for both sides, kept for 30 days.

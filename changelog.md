@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.7 (Oct 22, 2026)
+Share a note or task list by link; anyone with the link sees it, read-only and up to date, without signing in. New Settings and help page.
+
 ## 0.6.1 (Oct 22, 2026)
 Recently deleted moved to the bottom of the sidebar, apart from your folders and notes.
 
