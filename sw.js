@@ -8,7 +8,7 @@
 // This only affects the app's own files. Notes and tasks are saved separately
 // (see storage.js).
 
-const CACHE = 'anthology-files-v6';
+const CACHE = 'anthology-files-v7';
 const APP_FILES = [
   './',
   './index.html',

@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.7.1'; // must match the version in storage.js
+const APP_VERSION = '0.7.2'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -1074,8 +1074,8 @@ async function loadShareLink(syncFirst = false) {
   els.shareExplain.textContent = mode === 'edit'
     ? `Anyone with this link can change this ${noun}, without signing in. You'll see their changes, and they'll ` +
       'see yours. Share it only with people you trust.'
-    : `Anyone with this link can see this ${noun}, and your changes as you make them. They don't need to sign ` +
-      "in, and they can't change it.";
+    : `Anyone with this link can see this ${noun}, and your changes as you make them, without signing in. ` +
+      'This link is view-only, so they can\'t make changes.';
   showShareLink(null, 'Making a link…');
   try {
     if (syncFirst) await Storage.sync(); // the item has to be in the database before it can be shared
@@ -1176,10 +1176,10 @@ async function startViewer(token) {
   els.access.hidden = true;
   els.viewer.hidden = false;
   await loadShared(true);
-  // Show the owner's changes: check every 30 seconds, and when the page comes back into view.
+  // Show the owner's changes: check every 15 seconds, and when the page comes back into view.
   setInterval(() => {
     if (document.visibilityState === 'visible') loadShared();
-  }, 30 * 1000);
+  }, 15 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') loadShared();
   });
@@ -1590,10 +1590,13 @@ function showSyncStatus(status) {
   els.syncStatus.classList.toggle('is-problem', status === 'error');
 }
 
-// Changes arrived from another device or tab. Anything with a save still
-// waiting keeps its on-screen version, so typing isn't lost, and the open
-// item isn't redrawn while someone is typing in it.
+// Changes arrived from another device, another tab, or an edit link. Anything
+// with a save still waiting keeps its on-screen version, so typing isn't lost.
+// The open item is updated straight away unless someone typed in the last few
+// seconds; then the update waits until they move away.
 let mainIsStale = false;
+let lastTypedAt = 0;
+const TYPING_PAUSE_MS = 3000;
 
 async function applyRemoteChanges() {
   const data = await Storage.loadAll();
@@ -1608,11 +1611,21 @@ async function applyRemoteChanges() {
   refreshTrash();
   renderSide();
   renderSidebar();
-  if (els.itemPane.contains(document.activeElement)) {
-    mainIsStale = true;
-  } else {
+  const active = document.activeElement;
+  const typing = pendingSaves.size > 0 || Date.now() - lastTypedAt < TYPING_PAUSE_MS;
+  // Fields that stay in place when the open item is redrawn (task rows don't).
+  const steady = [els.editor, els.titleInput, els.addTask].includes(active);
+  if (!els.itemPane.contains(active)) {
     renderMain();
     syncHistory();
+  } else if (!typing && steady) {
+    // Show the new version, keeping the cursor where it was.
+    const start = active.selectionStart;
+    const end = active.selectionEnd;
+    renderMain();
+    active.setSelectionRange(Math.min(start, active.value.length), Math.min(end, active.value.length));
+  } else {
+    mainIsStale = true;
   }
 }
 
@@ -1772,6 +1785,8 @@ function wireEvents() {
     await addTask(list, text);
     renderTasks();
   });
+
+  document.addEventListener('input', () => { lastTypedAt = Date.now(); });
 
   // Changes that arrived while someone was typing are shown once they finish.
   els.itemPane.addEventListener('focusout', event => {

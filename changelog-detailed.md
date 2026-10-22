@@ -1,5 +1,21 @@
 # Changelog (detailed)
 
+## 0.7.2 (Oct 22, 2026)
+
+Changed
+- The app checks for changes every 15 seconds while it's open and in view (was every minute); shared pages check every 15 seconds (was 30)
+- An open note or task list now updates straight away when changes arrive, keeping the cursor in place, unless you typed in the last 3 seconds or are typing in a task; then it updates once you move away
+- The view-only explanation in the Share panel now says "This link is view-only, so they can't make changes"
+
+Fixed
+- On phones, the Can view / Can edit choice looked broken (the link box's style was also applied to the round buttons)
+
+Why
+- Found while testing edit links on an iPhone: a change made through an edit link took about 2 minutes to appear, or only appeared after leaving the note and coming back
+
+Notes for later
+- Truly instant updates would need Supabase's live-update feature (Realtime); possible later if 15 seconds feels slow
+
 ## 0.7.1 (Oct 22, 2026)
 
 Added

@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.7.2 (Oct 22, 2026)
+Changes from other devices and edit links show up within about 15 seconds, even in an open note; the Share panel looks right on phones.
+
 ## 0.7.1 (Oct 22, 2026)
 Edit links: share a note or task list so others can change it in their browser, without signing in.
 

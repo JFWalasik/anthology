@@ -27,7 +27,7 @@ const Storage = (() => {
   const BACKUP_FORMAT = 'anthology-backup';
   const BACKUP_VERSION = 2;
   const SYNC_DELAY_MS = 1500;
-  const SYNC_EVERY_MS = 60 * 1000;
+  const SYNC_EVERY_MS = 15 * 1000;     // how often to check for changes while the app is in view
   const RETRY_MS = 15 * 1000;
   const PAGE_SIZE = 1000;
   const KEEP_DELETED_MS = 30 * 24 * 60 * 60 * 1000; // Recently deleted keeps items for 30 days
@@ -808,7 +808,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.7.1', // must match APP_VERSION in app.js
+    version: '0.7.2', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
