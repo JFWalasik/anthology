@@ -1,5 +1,22 @@
 # Changelog (detailed)
 
+## 0.7.1 (Oct 22, 2026)
+
+Added
+- "Can view" / "Can edit" in the Share panel; each has its own link, and Shared links shows which is which
+- With an edit link, the shared page is an editor: a note's title and text, or a task list's name and tasks (add, edit, tick off, delete). Changes save automatically and reach the owner's app with the next sync
+- If the connection drops, the shared page says so and saves the change when it's back; if the link is turned off, it says the change couldn't be saved
+- supabase/003_edit_links.sql: functions that make changes through an edit link, each checking first that the link is on, allows editing, and points at that item
+
+Why
+- For two people over a few months, edit links are enough, and much simpler than sharing between accounts
+
+Notes for later
+- Tasks deleted through an edit link go to the owner's Recently deleted
+- Editing through a link needs a connection; there's no offline editing on the shared page
+- If the owner and someone with an edit link change the same note at the same moment, the later save wins for the whole note; task lists are safer, since each task saves separately
+- Tested from the command line, signed out: view links and made-up codes can't change anything, a note's edit link can't add tasks, and the internal link check can't be called directly. In the browser: editing a shared note and list at phone size, changes reaching the owner's app, saving after a dropped connection, and a link turned off mid-edit. Not yet tested on a real phone
+
 ## 0.7 (Oct 22, 2026)
 
 Added

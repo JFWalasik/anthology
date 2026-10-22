@@ -163,8 +163,9 @@
             <p>Deleted notes, task lists, folders and tasks can be restored for 30 days from Recently deleted, at the
               bottom of the sidebar.</p>
             <h4>Sharing</h4>
-            <p>Open a note or task list and choose Share to get a link. Anyone with the link can see it, without
-              signing in, and sees your changes as you make them. Turn links off under Shared links.</p>
+            <p>Open a note or task list and choose Share to get a link. Choose Can view or Can edit. Anyone with
+              the link can see it without signing in, and sees your changes as you make them; with an edit link they
+              can change it too. Turn links off under Shared links.</p>
             <p class="about-version">Anthology version <span id="about-version"></span></p>
           </section>
         </div>
@@ -195,12 +196,17 @@
       <div class="viewer-body" id="viewer-body"></div>
       <ul class="viewer-tasks" id="viewer-tasks"></ul>
       <p class="viewer-missing" id="viewer-missing" hidden></p>
-      <p class="viewer-footer">Shared from Anthology. This is a read-only copy; only its owner can change it.</p>
+      <p class="viewer-status" id="viewer-status" aria-live="polite"></p>
+      <p class="viewer-footer" id="viewer-footer"></p>
     </article>
   </section>
 
   <dialog class="share-dialog" id="share-dialog">
     <h2 id="share-heading">Share</h2>
+    <div class="share-choice" role="radiogroup" aria-label="What people with the link can do">
+      <label><input type="radio" name="share-mode" value="view" checked> Can view</label>
+      <label><input type="radio" name="share-mode" value="edit"> Can edit</label>
+    </div>
     <p id="share-explain"></p>
     <input type="text" id="share-url" readonly aria-label="Link">
     <div class="share-actions">

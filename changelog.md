@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.7.1 (Oct 22, 2026)
+Edit links: share a note or task list so others can change it in their browser, without signing in.
+
 ## 0.7 (Oct 22, 2026)
 Share a note or task list by link; anyone with the link sees it, read-only and up to date, without signing in. New Settings and help page.
 

@@ -661,6 +661,20 @@ const Storage = (() => {
     return data;
   }
 
+  // Changes made through an edit link. They go straight to the database (no
+  // offline copy), and work without signing in.
+  async function callShared(name, args) {
+    const { error } = await client.rpc(name, args);
+    if (error) throw error;
+  }
+
+  const saveSharedNote = (token, body) => callShared('save_shared_note', { share_token: token, new_body: body });
+  const saveSharedListTitle = (token, title) => callShared('save_shared_list_title', { share_token: token, new_title: title });
+  const addSharedTask = (token, id, text) => callShared('add_shared_task', { share_token: token, task_id: id, task_text: text });
+  const saveSharedTask = (token, id, text, done) =>
+    callShared('save_shared_task', { share_token: token, task_id: id, task_text: text, task_done: done });
+  const deleteSharedTask = (token, id) => callShared('delete_shared_task', { share_token: token, task_id: id });
+
   // ---- Notes saved on this device before 0.5 ----
 
   // Returns counts if this device has notes from before sign-in that haven't
@@ -794,7 +808,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.7', // must match APP_VERSION in app.js
+    version: '0.7.1', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
@@ -804,6 +818,7 @@ const Storage = (() => {
     saveFolder, deleteFolder, replaceAll,
     listTrash, restore, eraseForever, emptyTrash,
     getOrCreateShareLink, turnOffShareLink, replaceShareLink, listShareLinks, getSharedItem,
+    saveSharedNote, saveSharedListTitle, addSharedTask, saveSharedTask, deleteSharedTask,
     oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,
     makeBackup, parseBackup, loadPrefs, savePrefs,
   };

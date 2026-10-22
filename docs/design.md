@@ -60,8 +60,9 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - The sync status reads "All changes synced", "Syncing…", or the offline message.
 - Settings and help: one page with sections for Account (email, Sign out), Backups (Download and Restore), Shared links (a link to its own page), and Help and About (short help topics and the version number). On phones it opens as its own screen with "‹ Back".
 - Shared links: its own page, reached from Settings and help, listing each active link with Copy link and Turn off.
-- Sharing: "Share" in the bar above an open note or task list opens a small panel with the link, "Copy link" (on phones, "Share link…" opens the phone's share menu), "Make a new link" and "Turn off link".
+- Sharing: "Share" in the bar above an open note or task list opens a small panel with a "Can view" / "Can edit" choice (view is the default, and each has its own link), the link, "Copy link" (on phones, "Share link…" opens the phone's share menu), "Make a new link" and "Turn off link".
 - The shared page (what someone with a link sees): just the app name at the top, the title, and the note text or the task list with locked checkboxes, in the same Paper style. It ends with "Shared from Anthology. This is a read-only copy; only its owner can change it." It checks for changes every 30 seconds and when brought back into view.
+- With an edit link, the same page becomes an editor: the note's title and text, or the list's name, tasks (checkbox, text, × to delete) and "Add a task". Changes save automatically with a small "Saved" line, and the footer reads "Shared from Anthology. Anyone with this link can make changes." Without a connection it says the change will be saved when back online. While someone is typing, incoming changes wait so their typing isn't interrupted.
 
 ## App icon
 
@@ -81,6 +82,8 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 ## Decision log
 
 Newest first.
+
+- **Oct 22, 2026.** Edit links (0.7.1): Can view / Can edit in the Share panel; the shared page becomes an editor for edit links.
 
 - **Oct 22, 2026.** Settings and help page, and sharing (0.7). Account and backup links moved off the crowded sidebar bottom into the new page. Shared links get their own page. Shared pages update live and say plainly that they're read-only.
 
