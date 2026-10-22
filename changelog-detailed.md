@@ -1,5 +1,34 @@
 # Changelog (detailed)
 
+## 0.5 (Oct 22, 2026)
+
+Added
+- A Supabase database holding each person's folders, notes, task lists and tasks, with access rules so each person reaches only their own (supabase/001_setup.sql)
+- Access by 6-digit code: enter your email, then the code emailed from anthologyaccess@gmail.com. Stays signed in on each device; Sign out clears that person's copy from the device
+- An allowed list of emails; anyone else is turned away with "This email isn't on the list for Anthology"
+- Offline editing: changes are saved on the device first and sent when there's a connection; the sidebar shows the sync status
+- Changes from other devices appear when the app is opened, brought back into view, or every minute while open; the open note isn't redrawn while you're typing in it
+- On first sign-in in a browser with notes from before 0.5, an offer to add them to the account
+- The Supabase code library (version 2.117.3), kept as a copy in vendor/ so the app doesn't depend on another site being up
+- config.js with the database address and its public (publishable) key
+
+Changed
+- storage.js rewritten for syncing; the rest of the app works much as before
+- Restoring a backup now replaces everything in the account, on all devices
+- Preferences (which item was open, and so on) are kept per person on each device
+
+Why
+- Notes were stuck in one browser on one device; this was the main goal of the MVP
+- Codes rather than links, because an email link opens Safari rather than the iPhone home-screen app
+- A dedicated Gmail account sends the codes, because Supabase's built-in email is for testing only and personal email was off limits
+
+Notes for later
+- If the same item is changed on two devices, the later change wins; the database enforces this
+- Deleted items are marked as deleted in the database rather than erased, which the recently deleted folder in 0.6 can build on
+- Tested: refusal of signed-out reading and writing, unlisted emails, syncing both ways, changes made while offline, typing while a change arrives, the pre-0.5 notes offer, and signing out. Not yet tested on a real phone
+- Next, 0.5.1: the keep-alive service and Dependabot library alerts
+- Plan updated to version 0.12, with access preferences and the access-code email account
+
 ## 0.4.1 (Oct 21, 2026)
 
 Fixed

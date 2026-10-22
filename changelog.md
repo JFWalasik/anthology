@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.5 (Oct 22, 2026)
+Notes and tasks now sync between devices through a database, work offline, and are reached with an emailed access code.
+
 ## 0.4.1 (Oct 21, 2026)
 On phones, the back gesture returns to the list; the ⋯ button is easier to see.
 

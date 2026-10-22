@@ -1125,9 +1125,10 @@ async function offerOldDeviceData() {
   const parts = [];
   if (found.notes) parts.push(plural(found.notes, 'note', 'notes'));
   if (found.taskLists) parts.push(plural(found.taskLists, 'task list', 'task lists'));
+  const them = found.notes + found.taskLists === 1 ? 'it' : 'them';
   const add = confirm(
-    `This browser has ${parts.join(' and ')} saved from before you signed in. Add them to your account?\n\n` +
-    'OK adds them. Cancel leaves them out; they stay saved in this browser.'
+    `This browser has ${parts.join(' and ')} saved from before you signed in. Add ${them} to your account?\n\n` +
+    `OK adds ${them}. Cancel leaves ${them} out; ${them === 'it' ? 'it stays' : 'they stay'} saved in this browser.`
   );
   if (add) {
     await Storage.addOldDeviceData();

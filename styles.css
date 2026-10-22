@@ -420,7 +420,7 @@ body.signed-out .side-toggle { display: none; }
 
 .sync-status, .account { margin: 0; font-size: 13px; color: var(--ink-muted); }
 .sync-status.is-problem { color: var(--danger); }
-.account { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 4px; }
+.account { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 4px; }
 .account .link { font-size: 13px; }
 
 /* ---- Menus and messages ---- */

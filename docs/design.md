@@ -54,6 +54,9 @@ All colors are defined once at the top of styles.css, so they can be changed in 
 - The accent color follows the side you're on: blue on Notes, green on Tasks.
 - Phones (screens narrower than 700px) use two screens: the list of folders and items, or the open item with a "‹ Back" button. The phone's own back gesture does the same. The Notes/Tasks toggle stays at the top. Tap targets are larger, typing fields are at least 16px (iPhones zoom in on smaller ones), and space is kept clear for the notch and home bar.
 
+- Access screen: when no one is signed in, the app shows a single centered box: "Enter your email to get an access code", then "A code is on its way to … Enter it here", with "Send a new code" and "Use a different email". The Notes/Tasks toggle is hidden until someone is in.
+- The sidebar footer shows the sync status ("All changes synced", "Syncing…", or the offline message), the signed-in email with "Sign out", and the backup links.
+
 ## App icon
 
 A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones round the corners themselves. The images are in icons/ and were made from Georgia with a small script; to change the icon, replace those images.
@@ -71,6 +74,8 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 ## Decision log
 
 Newest first.
+
+- **Oct 22, 2026.** Access screen and sync status added (0.5). Wording uses "access" rather than "sign in" where people see it, except for "Sign out".
 
 - **Oct 21, 2026.** Phone layout (0.4): two screens with a Back button, rather than stacking the sidebar above the item. "⋯" menus on touch screens, rather than swipe or press-and-hold, because they're easier to discover. App icon: white Georgia "A" on the Notes blue.
 
