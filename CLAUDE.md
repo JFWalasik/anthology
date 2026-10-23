@@ -16,6 +16,8 @@ This file gives guidance for working on the project. It's meant to be applied wi
 ## How the app is built
 
 - Plain HTML, CSS and JavaScript, with no build step and as few dependencies as practical. The app should run by opening its files in a browser.
+- Files: app.js (shared state, helpers, saving, drawing the page, syncing, start-up; loaded last), sidebar.js (folders, pinning, moving, dragging), editor.js (typing in notes), tasks.js (tasks, reordering, Undo), sharing.js (Share panel, Shared links, the shared page), search.js, backup.js (export, restore, reminder), access.js (access screen, sign out), pages.js (Recently deleted, Settings), ui.js (⋯ menu, Move and confirmation windows), storage.js (all saving and loading), export.js (Markdown and ZIP). A new file goes in index.html's script list and sw.js's file list.
+- Testing: docs/test-checklist.md, and tests/smoke-test.js for a quick check of every feature on the test copy. Add to both when adding features.
 - Look and feel decisions (colors, fonts, layout) are in docs/design.md. Check it before changing how the app looks, and record new decisions there.
 - Keep the code that saves and loads data in one place, so the storage can change (browser storage now, Supabase from version 0.5) without rewriting the rest of the app.
 - Notes are plain text with light Markdown-style formatting for now. Rich text (a formatting toolbar) is planned soon, likely using a well-established editor library that needs no build step, so it helps to keep the note-editing code easy to swap out.
@@ -37,7 +39,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 
 ## Versions and changelogs
 
-- Versions follow the phase plan in docs/plan.md: 0.1, 0.2, 0.3 and so on. Small fixes may add a third number (0.2.1). Version 1.0 is reserved for when the app feels dependable for daily use.
+- Versions follow the phase plan in docs/plan.md. New features raise the second number (1.1, 1.2, 1.3); small fixes add a third (1.1.1). Numbering skipped 1.0, since the app was already dependable for daily use.
 - At each version, update both changelogs:
   - changelog.md: one or two plain-language lines per version, newest first.
   - changelog-detailed.md: what was added, changed and fixed, why, and notes for later.

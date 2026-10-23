@@ -1,5 +1,25 @@
 # Changelog (detailed)
 
+## 1.1 (Oct 23, 2026)
+
+Changed
+- app.js (about 2,400 lines) is split into ten files: app.js (shared state, helpers, saving, drawing the page, syncing, start-up), sidebar.js, editor.js, tasks.js, sharing.js, search.js, backup.js, access.js, pages.js and ui.js. index.html loads them in that order, with app.js last because it starts the app; sw.js keeps all of them for offline use
+- The code was moved, not rewritten: a script copied line ranges of the old file, and a check confirmed every line of the old app.js appears exactly once in the new files. The one real change is that each file now hooks up its own buttons and keys (for example wireSearchEvents in search.js), called from app.js
+- Version numbering moves past 1.0 to 1.1 (plan 0.20): new features raise the second number, small fixes add a third
+
+Added
+- docs/test-checklist.md: what to test, written from the app as it behaved at 0.10
+- tests/smoke-test.js: clicks and types through every feature on the test copy (about 140 checks), using only "TEST" items, and removes them afterwards. It won't run anywhere but localhost
+
+Why
+- Smaller files make later changes easier and safer, especially from the phone, where a whole 2,400-line file is hard to work with
+- Testing the app before the split gave a fair before-and-after comparison
+
+Notes for later
+- Tested: the smoke test passed 141 of 141 checks before the split (on 0.10) and after it (on 1.1); dragging a task with the mouse and the phone layout (menus, Back, Settings) were checked by hand both times, with no console errors. Not tried on a real phone
+- Known quirk found while testing, left as it was: closing a folder resets where new things go only if that folder itself was the target, not a folder inside it
+- The files share names with each other, as the single file did. Two files can't define the same top-level name; the browser would report an error on loading
+
 ## 0.10 (Oct 23, 2026)
 
 Added

@@ -49,3 +49,4 @@ What it covers:
 ## Results
 
 - **0.10, before the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: all fine, no console errors.
+- **1.1, after the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: the same results as 0.10 at every step, no console errors. All 21 files in sw.js's list load.

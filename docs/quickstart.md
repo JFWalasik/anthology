@@ -1,6 +1,6 @@
 # Quickstart: developing Anthology
 
-Written Oct 23, 2026, at version 0.9. A short refresher for coming back after a few weeks away. Details live in docs/plan.md (decisions and phases), docs/roadmap.md (what's next), docs/design.md (look and feel) and docs/access-decisions.md (how people get in). Words in *italics* are explained in "Key terms" at the end.
+Written Oct 23, 2026, at version 0.9; updated at 1.1. A short refresher for coming back after a few weeks away. Details live in docs/plan.md (decisions and phases), docs/roadmap.md (what's next), docs/design.md (look and feel) and docs/access-decisions.md (how people get in). Words in *italics* are explained in "Key terms" at the end.
 
 ## 1. What Anthology is made of
 
@@ -18,6 +18,7 @@ Written Oct 23, 2026, at version 0.9. A short refresher for coming back after a 
 4. **Which version is live?** In the app: Settings and help, at the bottom. On a phone, fully close and reopen the app to pick up an update.
 5. **Testing** happens on a test copy on the Mac (`localhost:8765`, in Claude's Browser pane), signed in with your account. Claude uses items titled "TEST…" and removes them afterwards. You may be asked to sign in there with an access code.
 6. **Releasing:** each version updates the version number in app.js, storage.js and sw.js, plus both changelogs. Pushing makes it live.
+7. **Checking everything:** for changes that touch many features, docs/test-checklist.md lists what to test, and tests/smoke-test.js clicks through every feature on the test copy in about a minute (ask Claude to run it).
 
 ## 3. Your accounts
 
@@ -92,7 +93,7 @@ A custom domain (like anthologynotes.com, about $10 to $15 a year) changes the a
 - **Keep main working:** changes go live as soon as they're pushed or merged. Keep phone changes small.
 - **Never paste the secret key or any password into a chat.** The publishable key is designed to be public.
 - **What could cost money:** Supabase's paid plan (if usage grew a lot, or to avoid pausing), and a domain. Everything else is free.
-- **app.js is the one large file** (about 2,300 lines). Splitting it into smaller files would make future changes easier, especially from the phone.
+- **The app's code is split by feature** (since 1.1): app.js plus a file each for the sidebar, editor, tasks, sharing, search, backups, access, pages and shared pieces. CLAUDE.md has the map.
 
 ## Key terms
 
@@ -106,4 +107,4 @@ A custom domain (like anthologynotes.com, about $10 to $15 a year) changes the a
 - **Hook:** a check Supabase runs at a set moment; ours runs before an account is created and turns away emails not on the list.
 - **SMTP / app password:** SMTP is the standard way programs send email; an app password is Google's separate password letting one program (Supabase) send from a Gmail account.
 - **Sync / offline copy:** each device keeps a copy of your data and exchanges changes with the database when there's a connection.
-- **Version numbers:** 0.9, 0.10, and so on for new features; a third number (0.9.1) for small fixes; 1.0 when it feels dependable for daily use.
+- **Version numbers:** 1.1, 1.2, and so on for new features; a third number (1.1.1) for small fixes. Numbering went from 0.10 straight to 1.1, since the app was already dependable for daily use.

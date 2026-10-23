@@ -891,7 +891,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.10', // must match APP_VERSION in app.js
+    version: '1.1', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),

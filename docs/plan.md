@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.19 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
+Plan version 0.20 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -53,9 +53,10 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 8. **0.8, Export, search, restore choices, and export reminder (MVP complete).** One "Export everything" ZIP file with every note and task list as Markdown (tasks as checklists), in separate Notes and Tasks folders, plus the backup file. Restore accepts the ZIP or the backup file, and offers "Add what's missing" (the default: only items you don't currently have come back, so an old backup can't overwrite newer work) or "Replace everything". Search across notes and tasks. A reminder banner when the last export is about six months old; "Not now" hides it for two weeks.
 9. **0.9, Folders inside folders, and moving.** Folders can hold folders, with indents that shrink at each level and stop after four. "Move to…" for notes, task lists and folders everywhere, and dragging onto folders on a computer. Deleting uses the app's own window, with "Yes, delete" and "Cancel".
 10. **0.10, Pinned items.** Folders, notes and task lists can be pinned to the top of their own level.
-11. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
+11. **1.1, app.js split into smaller files.** One file per feature, with no visible change, so later work (especially from the phone) touches less code. Also a test checklist and a smoke test that clicks through every feature on the test copy.
+12. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
-Versions stay below 1.0 until the app feels solid enough for daily use without surprises.
+The app has been dependable for daily use since about 0.8 (the MVP, with sharing from 0.7), so numbering moved past 1.0 and continues at 1.1 (decided Oct 23, 2026).
 
 ## Enhancements, prioritized
 
@@ -181,7 +182,7 @@ Most checks run automatically and only get in touch when something needs attenti
 
 Two changelogs, both newest version first: a summary for a quick look, and a detailed log for revisiting decisions months later.
 
-Version numbers: new features raise the middle number (0.1, 0.2, 0.3). Small fixes can add a third number (0.2.1) if that turns out to be useful. Version 1.0 is reserved for when the app feels dependable for daily use.
+Version numbers: new features raise the second number (1.1, 1.2, 1.3). Small fixes add a third number (1.1.1). Versions before 1.1 ran from 0.1 to 0.10 the same way; numbering skipped 1.0 because the app was already dependable for daily use (decided Oct 23, 2026, plan 0.20).
 
 Summary changelog, one or two plain-language lines per version:
 

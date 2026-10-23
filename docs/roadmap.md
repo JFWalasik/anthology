@@ -9,7 +9,7 @@ The list is split by where each item is best worked on:
 - **Phone-friendly:** changes only to the app's own files (how it looks and behaves), easy to check on the live app once merged. A phone session's change goes live as soon as its pull request is merged, so these are kept small and low-risk.
 - **Better at the desk:** anything needing a database script (pasted into Supabase's SQL editor), the Supabase dashboard, a new account, or careful testing across devices. Several small-sounding items need a new piece of information stored in the database (for example "pinned" or a due date), which is why they're here.
 
-Done since this was written: folders inside folders, and moving and dragging (0.9); pinned items (0.10). Moving tasks between lists was set aside: copying the text works well enough.
+Done since this was written: folders inside folders, and moving and dragging (0.9); pinned items (0.10); app.js split into smaller files (1.1). Moving tasks between lists was set aside: copying the text works well enough.
 
 ## Phone-friendly, in suggested order
 
@@ -21,7 +21,6 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 
 ## Better at the desk, in suggested order
 
-0. **Split app.js into smaller files — do this next** (one session). Decided Oct 23, 2026. No visible change; it makes later work, especially from the phone, easier. Plain files, no build step; index.html loads them in order. Planned split: app.js (shared state, helpers, start-up, drawing the page), sidebar.js (folders, nesting, pinning, moving, dragging), editor.js (editing notes), tasks.js (task lists, tasks, reordering, Undo), sharing.js (Share panel, Shared links page, the shared page), search.js, backup.js (export, restore, reminder), access.js (access screen, sign out), pages.js (Settings and help, Recently deleted), ui.js (menus, delete and move windows, Undo message). storage.js and export.js stay as they are. Also: add the new files to sw.js's file list, bump the version, add a one-line file map to CLAUDE.md, and test every feature afterwards.
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
 2. **Pinned items** (small). Needs a database script for the "pinned" mark on folders, notes and task lists. Decided Oct 23, 2026 (planned as 0.10):
    - Folders, notes and task lists can all be pinned. Folders are shared by both sides, so a pinned folder is pinned on both.
@@ -49,6 +48,8 @@ The steps are in docs/plan.md, under "Working from your phone": start a Code ses
 
 - Point the new session at CLAUDE.md, docs/plan.md and this file. CLAUDE.md is read automatically.
 - **Testing** happens on a test copy at `http://localhost:8765` (the "anthology" entry in `.claude/launch.json`), in Claude's Browser pane. Testing anything that needs an account means Oscar signing in there with an access code. Tests use items whose titles start with "TEST", removed afterwards.
-- **Releasing:** every version updates `APP_VERSION` in app.js and `version` in storage.js together, and the cache name in sw.js; pushing to main publishes the live app within about a minute.
+- **Releasing:** every version updates `APP_VERSION` in app.js and `version` in storage.js together, and the cache name in sw.js; pushing to main publishes the live app within about a minute. Versions are now 1.1, 1.2 and so on.
+- **Checking:** docs/test-checklist.md and tests/smoke-test.js cover every feature; run the smoke test before releasing anything that touches several features.
+- **Small fix to consider:** closing a folder doesn't reset where new things go when a folder inside it was the target (see the checklist's known quirks).
 - **Database changes** are scripts in the supabase folder (001 to 003 have been run), pasted into Supabase's SQL editor by Oscar.
 - **Known issue:** about 1 in 20 requests to Supabase gets no answer; the app retries, so it only shows up as an occasional delay.
