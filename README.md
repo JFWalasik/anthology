@@ -42,4 +42,4 @@ To try changes before they go live, open index.html from the project folder in a
 
 How people get into the app, and why it works that way, is explained in [docs/access-decisions.md](docs/access-decisions.md).
 
-The plan for the project is in [docs/plan.md](docs/plan.md).
+The plan for the project is in [docs/plan.md](docs/plan.md). Coming back after a break? Start with [docs/quickstart.md](docs/quickstart.md).
