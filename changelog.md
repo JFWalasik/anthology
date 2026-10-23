@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.10 (Oct 23, 2026)
+Pin folders, notes and task lists to the top of their level.
+
 ## 0.9 (Oct 23, 2026)
 Folders inside folders, "Move to…" for notes, task lists and folders, dragging onto folders on a computer, and a clearer delete confirmation.
 

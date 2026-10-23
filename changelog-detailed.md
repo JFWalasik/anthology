@@ -1,5 +1,21 @@
 # Changelog (detailed)
 
+## 0.10 (Oct 23, 2026)
+
+Added
+- Pin and Unpin for folders, notes and task lists: in the ⋯ menu, as a hover button for notes and lists on a computer, and in the bar above an open note or list
+- Pinned things go to the top of their own level: pinned folders, then pinned notes or task lists, then everything else as before. A small pin mark shows on each
+- supabase/004_pinned.sql: a "pinned" mark on folders, notes and task lists
+
+Why
+- Quick access to the things used most, without leaving their folders
+
+Notes for later
+- Pinning doesn't change an item's "last edited" date; pinned items are ordered by it, pinned folders alphabetically
+- Folders are shared by both sides, so a pinned folder is pinned on both
+- Backups and restores keep pins; Markdown exports don't show them
+- Tested: pinning at the top level and inside a folder, the order, the pin marks, Unpin from the bar, the dates, the database, and backups. Not tried by hand on a phone
+
 ## 0.9 (Oct 23, 2026)
 
 Added

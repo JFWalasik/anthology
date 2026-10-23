@@ -86,6 +86,8 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 
 Newest first.
 
+- **Oct 23, 2026.** Pinned items (0.10): pinned things go to the top of their own level, with a small grey pin mark.
+
 - **Oct 23, 2026.** Folders inside folders (0.9): indents shrink at each level and stop after four; Move to… and dragging; the app's own delete window with "Yes, delete" (red) and "Cancel"; folders show a single ⋯ on hover.
 
 - **Oct 22, 2026.** Export, search, restore choices and the export reminder (0.8, MVP complete). Export ZIP has separate Notes and Tasks folders. "Download backup" became "Export everything", which includes the backup.

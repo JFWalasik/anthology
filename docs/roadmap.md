@@ -9,7 +9,7 @@ The list is split by where each item is best worked on:
 - **Phone-friendly:** changes only to the app's own files (how it looks and behaves), easy to check on the live app once merged. A phone session's change goes live as soon as its pull request is merged, so these are kept small and low-risk.
 - **Better at the desk:** anything needing a database script (pasted into Supabase's SQL editor), the Supabase dashboard, a new account, or careful testing across devices. Several small-sounding items need a new piece of information stored in the database (for example "pinned" or a due date), which is why they're here.
 
-Done since this was written: folders inside folders, and moving and dragging (0.9). Moving tasks between lists was set aside: copying the text works well enough.
+Done since this was written: folders inside folders, and moving and dragging (0.9); pinned items (0.10). Moving tasks between lists was set aside: copying the text works well enough.
 
 ## Phone-friendly, in suggested order
 

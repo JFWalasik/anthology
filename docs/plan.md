@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.18 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
+Plan version 0.19 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -52,7 +52,8 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
    **0.7.1, Edit links.** The Share panel offers "Can view" or "Can edit". Anyone with an edit link can change the note or task list in their browser, without signing in; editing through a link needs a connection.
 8. **0.8, Export, search, restore choices, and export reminder (MVP complete).** One "Export everything" ZIP file with every note and task list as Markdown (tasks as checklists), in separate Notes and Tasks folders, plus the backup file. Restore accepts the ZIP or the backup file, and offers "Add what's missing" (the default: only items you don't currently have come back, so an old backup can't overwrite newer work) or "Replace everything". Search across notes and tasks. A reminder banner when the last export is about six months old; "Not now" hides it for two weeks.
 9. **0.9, Folders inside folders, and moving.** Folders can hold folders, with indents that shrink at each level and stop after four. "Move to…" for notes, task lists and folders everywhere, and dragging onto folders on a computer. Deleting uses the app's own window, with "Yes, delete" and "Cancel".
-10. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
+10. **0.10, Pinned items.** Folders, notes and task lists can be pinned to the top of their own level.
+11. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 Versions stay below 1.0 until the app feels solid enough for daily use without surprises.
 
@@ -74,7 +75,6 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 | Colors that vary each time the app opens: blues, purples and oranges for Notes; yellows and greens for Tasks. A new color can be liked and saved as a favorite, so it comes up again and can be picked from a list of favorites (see docs/design.md) | Both | Oscar | Soon | Small to medium |
 | Due dates | Tasks | Claude | Soon | Small |
 | Task priorities | Tasks | Claude | Soon | Small |
-| Pin notes to the top | Notes | Claude | Soon | Small |
 | Dark mode | Both | Claude | Soon | Small |
 | Edit sharing with specific people (shared items appear in each person's own app, with offline editing) | Both | Oscar | Later | Large |
 | "Save a copy to my Anthology" on a shared page | Both | Claude | Later | Small |
