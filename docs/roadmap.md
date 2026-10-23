@@ -22,7 +22,12 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 ## Better at the desk, in suggested order
 
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
-2. **Pinned items** (small). Keep important notes and task lists at the top. Needs a database script for the "pinned" mark.
+2. **Pinned items** (small). Needs a database script for the "pinned" mark on folders, notes and task lists. Decided Oct 23, 2026 (planned as 0.10):
+   - Folders, notes and task lists can all be pinned. Folders are shared by both sides, so a pinned folder is pinned on both.
+   - Pinned things go to the top of their own level: at the top level, pinned folders first, then pinned notes or task lists, then everything else as now (folders, then items). Inside a folder, the same order for its subfolders and items.
+   - Pinned notes and task lists are ordered by most recently edited; pinned folders stay alphabetical. A small pin mark shows on each.
+   - Pin and Unpin: in the ⋯ menu (phones, and folders on a computer), as a hover button for notes and lists on a computer, and in the bar above an open note or task list.
+   - Backups and restores keep pins; Markdown exports don't show them.
 3. **Subtasks** (medium). Needs a database script, and a decision on how they appear in exports and shared pages.
 4. **Due dates and task priorities** (small each). Each needs a database script.
 5. **Formatting toolbar (rich text)** (large). Bold, lists and headings with buttons. Adds a library and touches the editor, export, search and shared pages; best once the basics above feel settled.
