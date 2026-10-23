@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.17 · started Oct 20, 2026 · updated Oct 22, 2026 · owner: Oscar
+Plan version 0.18 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -29,7 +29,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Sync and database | Supabase | Moderate-high | Built on Postgres (open source), exportable, can be self-hosted; includes sign-in and access rules |
 | Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
-| Folders | One level in the MVP, nesting planned; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
+| Folders | Folders inside folders (from 0.9), with no limit; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
 | Sharing | Links, no sign-in for viewers: view-only at 0.7, editable at 0.7.1. Shared items update live for viewers | Moderate-high | Lowest friction for viewers. Edit links are enough for two people for now; sharing with specific accounts and co-editing remain on the enhancements list |
 | Code home | Personal GitHub repository, public | Moderate | Simplest; can move to an organization later |
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
@@ -51,7 +51,8 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 7. **0.7, Read-only sharing and Settings and help (minimally shareable version).** Share a single note or task list by unguessable link (whole folders later); viewers see live updates without signing in; turn a link off or replace it. A Settings and help page (account, backups, a link to a separate Shared links page, and Help and About) takes over the crowded bottom of the sidebar.
    **0.7.1, Edit links.** The Share panel offers "Can view" or "Can edit". Anyone with an edit link can change the note or task list in their browser, without signing in; editing through a link needs a connection.
 8. **0.8, Export, search, restore choices, and export reminder (MVP complete).** One "Export everything" ZIP file with every note and task list as Markdown (tasks as checklists), in separate Notes and Tasks folders, plus the backup file. Restore accepts the ZIP or the backup file, and offers "Add what's missing" (the default: only items you don't currently have come back, so an old backup can't overwrite newer work) or "Replace everything". Search across notes and tasks. A reminder banner when the last export is about six months old; "Not now" hides it for two weeks.
-9. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
+9. **0.9, Folders inside folders, and moving.** Folders can hold folders, with indents that shrink at each level and stop after four. "Move to…" for notes, task lists and folders everywhere, and dragging onto folders on a computer. Deleting uses the app's own window, with "Yes, delete" and "Cancel".
+10. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 Versions stay below 1.0 until the app feels solid enough for daily use without surprises.
 
@@ -61,9 +62,7 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 
 | Enhancement | Side | Raised by | Priority | Size |
 | --- | --- | --- | --- | --- |
-| Nested folders | Both | Oscar | Next | Medium |
 | Show a folder on only one side (folders are shared by Notes and Tasks from 0.3) | Both | Oscar | Soon | Small |
-| Move items between folders (done for notes in 0.2.1) | Both | Claude | Next | Small |
 | Custom domain, before sharing links widely | Setup | Claude | Next | Small |
 | "Invite someone" screen for the owner, adding an email to the allowed list without the Supabase dashboard | Setup | Oscar | Later | Small |
 | Email sending from a custom domain instead of the dedicated Gmail account, if a domain is ever added | Setup | Claude | Later | Small |

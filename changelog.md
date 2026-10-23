@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 0.9 (Oct 23, 2026)
+Folders inside folders, "Move to…" for notes, task lists and folders, dragging onto folders on a computer, and a clearer delete confirmation.
+
 ## 0.8.1 (Oct 22, 2026)
 Search results go away when you open one, tap ×, switch sides, or start something new.
 

@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.8.1'; // must match the version in storage.js
+const APP_VERSION = '0.9'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -369,7 +369,7 @@ async function deleteItem(item) {
       const contents = count === 0 ? '' : ` and its ${plural(count, 'task', 'tasks')}`;
       message = `Are you sure you want to delete the task list "${side().title(item)}"${contents}?`;
     }
-    if (!confirm(`${message} ${CAN_RESTORE}`)) return;
+    if (!await askConfirm(`${message} ${CAN_RESTORE}`)) return;
   }
   if (item.id === view().currentId) view().currentId = null;
   await removeItem(item, empty);
@@ -380,12 +380,9 @@ async function deleteItem(item) {
 // Moving an item doesn't count as editing it, so its date stays the same.
 async function moveCurrentItem(folderId) {
   const item = currentItem();
-  if (!item || item.folderId === folderId) return;
-  await flushSaves();
-  item.folderId = folderId;
-  if (folderId) view().openFolderIds.add(folderId);
+  if (!item) return;
+  await moveThing({ kind: 'item', id: item.id }, folderId);
   view().activeFolderId = folderId;
-  await runSave(() => side().save(item));
   savePrefs();
   render();
 }
@@ -630,7 +627,8 @@ async function finishEditingFolder(folder, name) {
     folder.name = name;
     await runSave(() => Storage.saveFolder(folder));
   } else if (name && !folder) {
-    const created = { id: newId(), name, parentId: null, createdAt: Date.now() };
+    const parentId = findFolder(view().activeFolderId) ? view().activeFolderId : null;
+    const created = { id: newId(), name, parentId, createdAt: Date.now() };
     state.folders.push(created);
     view().openFolderIds.add(created.id);
     view().activeFolderId = created.id;
@@ -641,25 +639,29 @@ async function finishEditingFolder(folder, name) {
 }
 
 async function deleteFolder(folder) {
-  const notes = state.notes.filter(note => note.folderId === folder.id);
-  const lists = state.taskLists.filter(list => list.folderId === folder.id);
+  const folderIds = descendantIds(folder.id);
+  const inside = new Set(folderIds);
+  const notes = state.notes.filter(note => inside.has(note.folderId));
+  const lists = state.taskLists.filter(list => inside.has(list.folderId));
   const parts = [];
+  if (folderIds.length > 1) parts.push(plural(folderIds.length - 1, 'folder', 'folders'));
   if (notes.length) parts.push(plural(notes.length, 'note', 'notes'));
   if (lists.length) parts.push(plural(lists.length, 'task list', 'task lists'));
-  const contents = parts.length ? ` and its ${parts.join(' and ')}` : '';
-  if (!confirm(`Are you sure you want to delete the folder "${folder.name}"${contents}? ${CAN_RESTORE}`)) return;
+  const joined = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
+  const contents = parts.length ? `, with ${joined} inside` : '';
+  if (!await askConfirm(`Are you sure you want to delete the folder "${folder.name}"${contents}? ${CAN_RESTORE}`)) return;
 
   await flushSaves();
   const listIds = new Set(lists.map(list => list.id));
-  state.notes = state.notes.filter(note => note.folderId !== folder.id);
+  state.notes = state.notes.filter(note => !inside.has(note.folderId));
   state.taskLists = state.taskLists.filter(list => !listIds.has(list.id));
   state.tasks = state.tasks.filter(task => !listIds.has(task.listId));
-  state.folders = state.folders.filter(f => f.id !== folder.id);
+  state.folders = state.folders.filter(f => !inside.has(f.id));
   for (const [name, items] of [['notes', state.notes], ['tasks', state.taskLists]]) {
     const v = state.views[name];
     if (!items.some(item => item.id === v.currentId)) v.currentId = null;
-    v.openFolderIds.delete(folder.id);
-    if (v.activeFolderId === folder.id) v.activeFolderId = null;
+    for (const id of folderIds) v.openFolderIds.delete(id);
+    if (inside.has(v.activeFolderId)) v.activeFolderId = null;
   }
   await runSave(() => Storage.deleteFolder(folder.id));
   savePrefs();
@@ -860,14 +862,180 @@ function renderSide() {
   els.newItem.textContent = side().newLabel;
 }
 
-function renderSidebar() {
-  const rows = [];
-  if (state.editingFolderId === NEW_FOLDER) rows.push(folderNameInput(null));
-  for (const folder of [...state.folders].sort(byName)) {
-    rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder));
+// ---- Folders inside folders ----
+
+const childFolders = parentId => state.folders.filter(f => (f.parentId || null) === parentId).sort(byName);
+
+// A folder and every folder inside it, at any depth.
+function descendantIds(id) {
+  const ids = [id];
+  for (let i = 0; i < ids.length; i++) {
+    for (const f of state.folders) if (f.parentId === ids[i] && !ids.includes(f.id)) ids.push(f.id);
   }
-  for (const item of itemsIn(null)) rows.push(itemRow(item));
-  els.tree.replaceChildren(...rows);
+  return ids;
+}
+
+// For example "Garden › Vegetables".
+function folderPath(id) {
+  const names = [];
+  const seen = new Set();
+  for (let folder = findFolder(id); folder && !seen.has(folder.id); folder = findFolder(folder.parentId)) {
+    seen.add(folder.id);
+    names.unshift(folder.name);
+  }
+  return names.join(' › ');
+}
+
+// Each level indents a little less than the one before, then not at all, so
+// deep folders still fit on a phone.
+const INDENTS = [16, 12, 8, 4];
+const indentFor = depth => INDENTS[depth - 1] ?? 0;
+const totalIndent = depth => INDENTS.slice(0, depth).reduce((sum, n) => sum + n, 0);
+
+// Opens a folder and the folders around it, so it can be seen.
+function revealFolder(id) {
+  for (let folder = findFolder(id); folder; folder = findFolder(folder.parentId)) {
+    if (view().openFolderIds.has(folder.id) && folder.id !== id) break;
+    view().openFolderIds.add(folder.id);
+  }
+}
+
+function newFolderInside(folder) {
+  revealFolder(folder.id);
+  view().activeFolderId = folder.id;
+  startEditingFolder(NEW_FOLDER);
+}
+
+// Moves a note, task list or folder into a folder (or to the top level when
+// folderId is null). A folder can't go inside itself or its own folders.
+async function moveThing(what, folderId) {
+  if (what.kind === 'folder') {
+    const folder = findFolder(what.id);
+    if (!folder || (folder.parentId || null) === folderId) return;
+    if (folderId && descendantIds(folder.id).includes(folderId)) return;
+    folder.parentId = folderId;
+    await runSave(() => Storage.saveFolder(folder));
+  } else {
+    const item = side().items().find(i => i.id === what.id);
+    if (!item || (item.folderId || null) === folderId) return;
+    await flushSaves();
+    item.folderId = folderId; // moving doesn't count as editing, so the date stays
+    await runSave(() => side().save(item));
+  }
+  if (folderId) revealFolder(folderId);
+  savePrefs();
+  render();
+}
+
+// The "Move to…" window: every folder, indented to show the nesting.
+function openMoveDialog(what, title) {
+  els.moveHeading.textContent = `Move "${title}" to…`;
+  const blocked = new Set(what.kind === 'folder' ? descendantIds(what.id) : []);
+  const here = what.kind === 'folder'
+    ? findFolder(what.id).parentId || null
+    : side().items().find(i => i.id === what.id).folderId || null;
+  const choices = [];
+  const addChoice = (label, folderId, depth) => {
+    const li = el('li');
+    const choice = button('move-choice', label, undefined, async () => {
+      els.moveDialog.close();
+      await moveThing(what, folderId);
+    });
+    choice.style.paddingLeft = `${10 + totalIndent(depth)}px`;
+    if (folderId === here) {
+      choice.classList.add('is-here');
+      choice.append(el('span', 'move-here', ' (here now)'));
+    }
+    li.append(choice);
+    choices.push(li);
+  };
+  addChoice('Top level', null, 0);
+  const walk = (parentId, depth) => {
+    for (const folder of childFolders(parentId)) {
+      if (blocked.has(folder.id)) continue;
+      addChoice(folder.name, folder.id, depth);
+      walk(folder.id, depth + 1);
+    }
+  };
+  walk(null, 1);
+  els.moveList.replaceChildren(...choices);
+  els.moveDialog.showModal();
+}
+
+// ---- Dragging onto folders (computers with a mouse or trackpad) ----
+
+const canDrag = window.matchMedia('(hover: hover)');
+let dragging = null; // { kind: 'item' | 'folder', id }
+let openTimer = null;
+
+function makeDraggable(row, what) {
+  if (!canDrag.matches) return;
+  row.draggable = true;
+  row.addEventListener('dragstart', event => {
+    dragging = what;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', what.id);
+    row.classList.add('is-dragging');
+  });
+  row.addEventListener('dragend', () => {
+    dragging = null;
+    row.classList.remove('is-dragging');
+    clearFolderDropMarks();
+  });
+}
+
+function canDropInto(folderId) {
+  if (!dragging) return false;
+  if (dragging.kind === 'folder') return !folderId || !descendantIds(dragging.id).includes(folderId);
+  return true;
+}
+
+function clearFolderDropMarks() {
+  clearTimeout(openTimer);
+  for (const marked of document.querySelectorAll('.drop-into')) marked.classList.remove('drop-into');
+}
+
+// A folder row accepts drops; holding over a closed folder opens it.
+function makeDropTarget(row, folder) {
+  if (!canDrag.matches) return;
+  row.addEventListener('dragover', event => {
+    if (!canDropInto(folder.id)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (row.classList.contains('drop-into')) return;
+    clearFolderDropMarks();
+    row.classList.add('drop-into');
+    if (!view().openFolderIds.has(folder.id)) {
+      openTimer = setTimeout(() => {
+        view().openFolderIds.add(folder.id);
+        renderSidebar();
+      }, 700);
+    }
+  });
+  row.addEventListener('drop', event => {
+    if (!canDropInto(folder.id)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const what = dragging;
+    clearFolderDropMarks();
+    moveThing(what, folder.id);
+  });
+}
+
+// ---- Drawing the sidebar ----
+
+function folderRows(parentId, depth) {
+  const rows = [];
+  const activeId = findFolder(view().activeFolderId) ? view().activeFolderId : null;
+  if (state.editingFolderId === NEW_FOLDER && activeId === parentId) rows.push(folderNameInput(null));
+  for (const folder of childFolders(parentId)) {
+    rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder, depth));
+  }
+  return rows;
+}
+
+function renderSidebar() {
+  els.tree.replaceChildren(...folderRows(null, 0), ...itemsIn(null).map(itemRow));
   renderSearch();
 
   // Recently deleted sits at the bottom of the sidebar, apart from the folders.
@@ -880,8 +1048,8 @@ function renderSidebar() {
   }
 
   const active = findFolder(view().activeFolderId);
-  const what = `New ${side().plural}`;
-  els.newItemTarget.textContent = active ? `${what} go into ${active.name}` : `${what} go at the top level`;
+  const what = `New ${side().plural} and folders`;
+  els.newItemTarget.textContent = active ? `${what} go into ${folderPath(active.id)}` : `${what} go at the top level`;
 }
 
 function itemRow(item) {
@@ -895,18 +1063,27 @@ function itemRow(item) {
   }
   open.append(el('span', 'item-title', title), el('span', 'item-date', formatDate(item.updatedAt)));
 
+  const move = () => openMoveDialog({ kind: 'item', id: item.id }, title);
   const actions = el('span', 'item-actions');
-  actions.append(button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item)));
-  const more = moreButton(`More for ${title}`, [{ label: 'Delete', danger: true, run: () => deleteItem(item) }]);
+  actions.append(
+    button('icon-button', 'Move', `Move ${title}`, move),
+    button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item))
+  );
+  const more = moreButton(`More for ${title}`, [
+    { label: 'Move to…', run: move },
+    { label: 'Delete', danger: true, run: () => deleteItem(item) },
+  ]);
 
   row.append(open, actions, more);
+  makeDraggable(row, { kind: 'item', id: item.id });
   li.append(row);
   return li;
 }
 
-function folderRow(folder) {
+function folderRow(folder, depth) {
   const isOpen = view().openFolderIds.has(folder.id);
   const items = itemsIn(folder.id);
+  const children = folderRows(folder.id, depth + 1);
   const li = el('li', 'folder');
   li.classList.toggle('is-open', isOpen);
 
@@ -917,26 +1094,61 @@ function folderRow(folder) {
   toggle.setAttribute('aria-expanded', String(isOpen));
   toggle.append(el('span', 'chevron'), el('span', 'folder-name', folder.name), el('span', 'folder-count', String(items.length)));
 
-  const actions = el('span', 'item-actions');
-  actions.append(
-    button('icon-button', 'Rename', `Rename folder ${folder.name}`, () => startEditingFolder(folder.id)),
-    button('icon-button danger', 'Delete', `Delete folder ${folder.name}`, () => deleteFolder(folder))
-  );
-  const more = moreButton(`More for folder ${folder.name}`, [
+  const move = () => openMoveDialog({ kind: 'folder', id: folder.id }, folder.name);
+  const choices = [
+    { label: 'New folder inside', run: () => newFolderInside(folder) },
     { label: 'Rename', run: () => startEditingFolder(folder.id) },
+    { label: 'Move to…', run: move },
     { label: 'Delete', danger: true, run: () => deleteFolder(folder) },
-  ]);
+  ];
+  // Four choices don't fit as hover buttons, so with a mouse the hover shows a
+  // ⋯ that opens the same menu phones use.
+  const actions = el('span', 'item-actions');
+  actions.append(button('icon-button', '⋯', `More for folder ${folder.name}`, event => {
+    event.stopPropagation();
+    openMenu(event.currentTarget, choices);
+  }));
+  const more = moreButton(`More for folder ${folder.name}`, choices);
 
   row.append(toggle, actions, more);
+  makeDraggable(row, { kind: 'folder', id: folder.id });
+  makeDropTarget(row, folder);
   li.append(row);
 
   if (isOpen) {
     const list = el('ul', 'folder-items');
-    if (items.length === 0) list.append(el('li', 'empty-folder', `No ${side().plural} yet`));
+    list.style.paddingLeft = `${indentFor(depth + 1)}px`;
+    list.append(...children);
+    if (items.length === 0 && children.length === 0) list.append(el('li', 'empty-folder', `No ${side().plural} yet`));
     for (const item of items) list.append(itemRow(item));
     li.append(list);
   }
   return li;
+}
+
+// ---- The app's own confirmation window ----
+// Used for deleting, so it can say "Yes, delete" rather than just "OK".
+// Resolves to true for yes, false for Cancel.
+
+function askConfirm(message, yesLabel = 'Yes, delete') {
+  els.confirmMessage.textContent = message;
+  els.confirmYes.textContent = yesLabel;
+  els.confirmDialog.showModal();
+  return new Promise(resolve => {
+    const finish = answer => {
+      els.confirmDialog.close();
+      els.confirmYes.removeEventListener('click', yes);
+      els.confirmNo.removeEventListener('click', no);
+      els.confirmDialog.removeEventListener('cancel', no);
+      resolve(answer);
+    };
+    const yes = () => finish(true);
+    const no = () => finish(false);
+    els.confirmYes.addEventListener('click', yes);
+    els.confirmNo.addEventListener('click', no);
+    els.confirmDialog.addEventListener('cancel', no);
+    els.confirmNo.focus();
+  });
 }
 
 function folderNameInput(folder) {
@@ -988,7 +1200,13 @@ function renderMain() {
   els.titleInput.placeholder = side().titlePlaceholder;
   els.deleteItem.textContent = side().deleteLabel;
   const options = [new Option('Top level', '')];
-  for (const folder of [...state.folders].sort(byName)) options.push(new Option(folder.name, folder.id));
+  const addOptions = (parentId, depth) => {
+    for (const folder of childFolders(parentId)) {
+      options.push(new Option(`${'\u00a0\u00a0\u00a0'.repeat(depth)}${folder.name}`, folder.id));
+      addOptions(folder.id, depth + 1);
+    }
+  };
+  addOptions(null, 0);
   els.itemFolder.replaceChildren(...options);
   els.itemFolder.value = item.folderId || '';
 
@@ -1024,7 +1242,7 @@ function snippetAround(text, query) {
 
 function searchMatches(rawQuery) {
   const query = rawQuery.toLowerCase();
-  const folderName = id => (findFolder(id) || {}).name || null;
+  const folderName = id => folderPath(id) || null;
   const results = [];
   for (const note of state.notes) {
     if (!note.body.toLowerCase().includes(query)) continue;
@@ -1140,6 +1358,7 @@ function trashDetails(entry) {
   const parts = [TRASH_KIND[entry.kind]];
   const c = entry.contains;
   const inside = [];
+  if (c.folders) inside.push(plural(c.folders, 'folder', 'folders'));
   if (c.notes) inside.push(plural(c.notes, 'note', 'notes'));
   if (c.taskLists) inside.push(plural(c.taskLists, 'task list', 'task lists'));
   if (c.tasks && entry.kind === 'taskLists') inside.push(plural(c.tasks, 'task', 'tasks'));
@@ -1178,13 +1397,13 @@ async function restoreDeleted(kind, id) {
 }
 
 async function eraseDeleted(entry) {
-  if (!confirm(`Delete "${trashTitle(entry)}" now? ${NO_RETRIEVE}`)) return;
+  if (!await askConfirm(`Delete "${trashTitle(entry)}" now? ${NO_RETRIEVE}`)) return;
   await Storage.eraseForever(entry.kind, entry.record.id);
   render();
 }
 
 async function emptyTrash() {
-  if (!confirm(`Delete everything in Recently deleted now? ${NO_RETRIEVE}`)) return;
+  if (!await askConfirm(`Delete everything in Recently deleted now? ${NO_RETRIEVE}`)) return;
   await Storage.emptyTrash();
   render();
 }
@@ -1887,6 +2106,25 @@ function wireEvents() {
   els.search.addEventListener('keydown', event => {
     if (event.key === 'Escape') clearSearch();
   });
+  byId('move-cancel').addEventListener('click', () => els.moveDialog.close());
+
+  // Dropping onto the sidebar's empty space (not onto a folder) moves to the top level.
+  els.tree.addEventListener('dragover', event => {
+    if (!canDropInto(null) || event.target.closest('.folder-row')) return;
+    event.preventDefault();
+    if (!els.tree.classList.contains('drop-into')) {
+      clearFolderDropMarks();
+      els.tree.classList.add('drop-into');
+    }
+  });
+  els.tree.addEventListener('drop', event => {
+    if (!canDropInto(null) || event.target.closest('.folder-row')) return;
+    event.preventDefault();
+    const what = dragging;
+    clearFolderDropMarks();
+    moveThing(what, null);
+  });
+
   els.searchClear.addEventListener('click', () => {
     clearSearch();
     els.search.focus();
@@ -2052,6 +2290,13 @@ async function init() {
     viewerTasks: byId('viewer-tasks'),
     viewerMissing: byId('viewer-missing'),
     viewerStatus: byId('viewer-status'),
+    moveDialog: byId('move-dialog'),
+    moveHeading: byId('move-heading'),
+    moveList: byId('move-list'),
+    confirmDialog: byId('confirm-dialog'),
+    confirmMessage: byId('confirm-message'),
+    confirmYes: byId('confirm-yes'),
+    confirmNo: byId('confirm-no'),
     search: byId('search'),
     searchClear: byId('search-clear'),
     searchResults: byId('search-results'),

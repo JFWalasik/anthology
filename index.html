@@ -176,6 +176,9 @@
             <p>Changes are saved on your device straight away and sent to your other devices when there's a
               connection. Without one, keep working; changes go up when you're back online. The bottom of the sidebar
               shows the sync status.</p>
+            <h4>Folders</h4>
+            <p>Folders can hold other folders. New notes, task lists and folders go into the folder you have open.
+              To move something, choose Move to… (or drag it onto a folder on a computer).</p>
             <h4>Recently deleted</h4>
             <p>Deleted notes, task lists, folders and tasks can be restored for 30 days from Recently deleted, at the
               bottom of the sidebar.</p>
@@ -254,6 +257,20 @@
       <button type="button" class="link danger" id="restore-replace">Replace everything</button>
     </div>
     <p class="share-close"><button type="button" class="quiet" id="restore-cancel">Cancel</button></p>
+  </dialog>
+
+  <dialog class="share-dialog" id="move-dialog">
+    <h2 id="move-heading">Move to…</h2>
+    <ul class="move-list" id="move-list"></ul>
+    <p class="share-close"><button type="button" class="quiet" id="move-cancel">Cancel</button></p>
+  </dialog>
+
+  <dialog class="share-dialog confirm-dialog" id="confirm-dialog">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button type="button" class="quiet" id="confirm-no">Cancel</button>
+      <button type="button" class="danger-button" id="confirm-yes">Yes, delete</button>
+    </div>
   </dialog>
 
   <div class="menu" id="menu" role="menu" hidden></div>

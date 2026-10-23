@@ -9,30 +9,29 @@ The list is split by where each item is best worked on:
 - **Phone-friendly:** changes only to the app's own files (how it looks and behaves), easy to check on the live app once merged. A phone session's change goes live as soon as its pull request is merged, so these are kept small and low-risk.
 - **Better at the desk:** anything needing a database script (pasted into Supabase's SQL editor), the Supabase dashboard, a new account, or careful testing across devices. Several small-sounding items need a new piece of information stored in the database (for example "pinned" or a due date), which is why they're here.
 
+Done since this was written: folders inside folders, and moving and dragging (0.9). Moving tasks between lists was set aside: copying the text works well enough.
+
 ## Phone-friendly, in suggested order
 
 1. **Dark mode** (small).
 2. **Varying colors with favorites, and a distinct look for each side** (small to medium). Blues, purples and oranges for Notes; yellows and greens for Tasks; like a color to keep it. Favorites can be kept with the account, as the export dates are, so no database script is needed.
-3. **Moving tasks between task lists** (small). One of the two meanings of "moving items into folders" to clarify.
-4. **Dragging notes and task lists onto folders in the sidebar** (small). The other meaning; moving with the folder menu already works.
-5. **"Save a copy to my Anthology"** on shared pages (small).
-6. **Restore by picking and choosing** (medium). Easier to try on a computer, where backup files are handy, but the work itself is app-only.
-7. **A short guide for people using the app** (small). Wording only.
+3. **"Save a copy to my Anthology"** on shared pages (small).
+4. **Restore by picking and choosing** (medium). Easier to try on a computer, where backup files are handy, but the work itself is app-only.
+5. **A short guide for people using the app** (small). Wording only.
 
 ## Better at the desk, in suggested order
 
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
 2. **Pinned items** (small). Keep important notes and task lists at the top. Needs a database script for the "pinned" mark.
-3. **Nested folders** (medium). Folders inside folders. The database already has room for it, but it touches the sidebar, moving, deleting, export and search, so it needs thorough testing.
-4. **Subtasks** (medium). Needs a database script, and a decision on how they appear in exports and shared pages.
-5. **Due dates and task priorities** (small each). Each needs a database script.
-6. **Formatting toolbar (rich text)** (large). Bold, lists and headings with buttons. Adds a library and touches the editor, export, search and shared pages; best once the basics above feel settled.
-7. **Show a folder on only one side** (small). Needs a database script.
-8. **Instant updates (Supabase Realtime)** (medium). Needs Supabase settings. Also look into the known issue: an open note sometimes doesn't update while being watched (seen in 0.7.2 testing).
-9. **"Invite someone" screen** (small). Needs a database script so the owner can add emails from the app. Worth doing when inviting more people.
-10. **Edit sharing with specific people** (large). Shared items appear in each person's own app, with offline editing.
-11. **Reminders and notifications** (large).
-12. **Live co-editing** (large).
+3. **Subtasks** (medium). Needs a database script, and a decision on how they appear in exports and shared pages.
+4. **Due dates and task priorities** (small each). Each needs a database script.
+5. **Formatting toolbar (rich text)** (large). Bold, lists and headings with buttons. Adds a library and touches the editor, export, search and shared pages; best once the basics above feel settled.
+6. **Show a folder on only one side** (small). Needs a database script.
+7. **Instant updates (Supabase Realtime)** (medium). Needs Supabase settings. Also look into the known issue: an open note sometimes doesn't update while being watched (seen in 0.7.2 testing).
+8. **"Invite someone" screen** (small). Needs a database script so the owner can add emails from the app. Worth doing when inviting more people.
+9. **Edit sharing with specific people** (large). Shared items appear in each person's own app, with offline editing.
+10. **Reminders and notifications** (large).
+11. **Live co-editing** (large).
 
 **Only if needed, at the desk:** a custom domain (and sending access codes from it); a daily keep-alive service if the database pauses too often.
 

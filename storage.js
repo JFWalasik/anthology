@@ -463,14 +463,18 @@ const Storage = (() => {
     }, discard);
   }
 
-  // Deleting a folder also deletes the notes and task lists in it.
+  // Deleting a folder also deletes everything in it, including folders inside it.
   async function deleteFolder(id) {
     removeAndQueue((data, changes, how) => {
-      const listIds = data.taskLists.filter(l => l.folderId === id).map(l => l.id);
+      const folderIds = [id];
+      for (let i = 0; i < folderIds.length; i++) {
+        for (const f of data.folders) if (f.parentId === folderIds[i]) folderIds.push(f.id);
+      }
+      const listIds = data.taskLists.filter(l => folderIds.includes(l.folderId)).map(l => l.id);
       remove(data, 'tasks', data.tasks.filter(t => listIds.includes(t.listId)).map(t => t.id), changes, how);
       remove(data, 'taskLists', listIds, changes, how);
-      remove(data, 'notes', data.notes.filter(n => n.folderId === id).map(n => n.id), changes, how);
-      remove(data, 'folders', [id], changes, how);
+      remove(data, 'notes', data.notes.filter(n => folderIds.includes(n.folderId)).map(n => n.id), changes, how);
+      remove(data, 'folders', folderIds, changes, how);
     });
   }
 
@@ -549,14 +553,23 @@ const Storage = (() => {
   // (a folder or a task list).
   function deletedWith(e, parent, trash) {
     if (e === parent || e.deletedAt !== parent.deletedAt) return false;
-    if (parent.kind === 'folders') {
-      if (e.kind === 'notes' || e.kind === 'taskLists') return e.record.folderId === parent.record.id;
-      if (e.kind === 'tasks') {
-        const list = trash.find(x => x.kind === 'taskLists' && x.record.id === e.record.listId);
-        return Boolean(list) && deletedWith(list, parent, trash);
-      }
-    }
     if (parent.kind === 'taskLists') return e.kind === 'tasks' && e.record.listId === parent.record.id;
+    if (parent.kind !== 'folders') return false;
+    // Walk up from e's folder, through folders deleted at the same time, looking for parent.
+    let folderId = e.record.folderId;
+    if (e.kind === 'folders') folderId = e.record.parentId;
+    if (e.kind === 'tasks') {
+      const list = findEntry(trash, 'taskLists', e.record.listId);
+      folderId = list && list.deletedAt === parent.deletedAt ? list.record.folderId : null;
+    }
+    const seen = new Set();
+    while (folderId && !seen.has(folderId)) {
+      if (folderId === parent.record.id) return true;
+      seen.add(folderId);
+      const folder = findEntry(trash, 'folders', folderId);
+      if (!folder || folder.deletedAt !== parent.deletedAt) return false;
+      folderId = folder.record.parentId;
+    }
     return false;
   }
 
@@ -581,12 +594,13 @@ const Storage = (() => {
           record: e.record,
           deletedAt: e.deletedAt,
           contains: {
+            folders: inside.filter(x => x.kind === 'folders').length,
             notes: inside.filter(x => x.kind === 'notes').length,
             taskLists: inside.filter(x => x.kind === 'taskLists').length,
             tasks: inside.filter(x => x.kind === 'tasks').length,
           },
-          parentName: e.kind === 'tasks'
-            ? nameOf('taskLists', e.record.listId)
+          parentName: e.kind === 'tasks' ? nameOf('taskLists', e.record.listId)
+            : e.kind === 'folders' ? (e.record.parentId ? nameOf('folders', e.record.parentId) : null)
             : e.record.folderId ? nameOf('folders', e.record.folderId) : null,
         };
       });
@@ -601,13 +615,25 @@ const Storage = (() => {
     if (!entry) return true;
     const picked = new Set([entry, ...data.trash.filter(e => deletedWith(e, entry, data.trash))]);
 
-    const bringBackFolder = record => {
-      if (!record.folderId || data.folders.some(f => f.id === record.folderId)) return;
-      const folder = findEntry(data.trash, 'folders', record.folderId);
-      if (folder) picked.add(folder);
-      else record.folderId = null; // its folder is gone for good: restore to the top level
+    // Brings back the folder something was in, and that folder's folder, and so
+    // on, if they were deleted too. If one is gone for good, the item goes to
+    // the top level, or into the nearest folder that still exists.
+    const bringBackFolder = (record, field = 'folderId') => {
+      let target = record;
+      let key = field;
+      while (target[key] && !data.folders.some(f => f.id === target[key])) {
+        const folder = findEntry(data.trash, 'folders', target[key]);
+        if (!folder) {
+          target[key] = null;
+          return;
+        }
+        picked.add(folder);
+        target = folder.record;
+        key = 'parentId';
+      }
     };
     if (kind === 'notes' || kind === 'taskLists') bringBackFolder(entry.record);
+    if (kind === 'folders') bringBackFolder(entry.record, 'parentId');
     if (kind === 'tasks' && !data.taskLists.some(l => l.id === entry.record.listId)) {
       const list = findEntry(data.trash, 'taskLists', entry.record.listId);
       if (!list) return false;
@@ -863,7 +889,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.8.1', // must match APP_VERSION in app.js
+    version: '0.9', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),

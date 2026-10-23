@@ -49,14 +49,25 @@ const Export = (() => {
   // Returns [{ path, text, time }] for everything in the export.
   function buildFiles(data, backupText, rootName) {
     const files = [];
-    const folderName = new Map();
-    const usedFolderNames = new Set();
-    for (const folder of [...data.folders].sort((a, b) => a.name.localeCompare(b.name))) {
-      folderName.set(folder.id, uniqueName(usedFolderNames, safeName(folder.name, 'Untitled folder')));
-    }
+    // Each folder's path, such as "Garden/Vegetables", mirroring folders inside folders.
+    const folderPath = new Map();
+    const usedFolderNames = new Map(); // per parent folder
+    const pathOf = (id, seen = new Set()) => {
+      if (!id || seen.has(id)) return '';
+      if (folderPath.has(id)) return folderPath.get(id);
+      seen.add(id);
+      const folder = data.folders.find(f => f.id === id);
+      if (!folder) return '';
+      const parent = pathOf(folder.parentId, seen);
+      if (!usedFolderNames.has(parent)) usedFolderNames.set(parent, new Set());
+      const name = uniqueName(usedFolderNames.get(parent), safeName(folder.name, 'Untitled folder'));
+      folderPath.set(id, parent ? `${parent}/${name}` : name);
+      return folderPath.get(id);
+    };
+    for (const folder of [...data.folders].sort((a, b) => a.name.localeCompare(b.name))) pathOf(folder.id);
     const usedNames = new Map(); // per folder path
     const place = (side, folderId, base, ext) => {
-      const dir = [rootName, side, folderName.get(folderId)].filter(Boolean).join('/');
+      const dir = [rootName, side, pathOf(folderId)].filter(Boolean).join('/');
       if (!usedNames.has(dir)) usedNames.set(dir, new Set());
       return `${dir}/${uniqueName(usedNames.get(dir), base)}${ext}`;
     };

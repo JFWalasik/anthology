@@ -1,5 +1,29 @@
 # Changelog (detailed)
 
+## 0.9 (Oct 23, 2026)
+
+Added
+- Folders inside folders, with no limit. Each level indents a little less (16, 12, 8, then 4 pixels) and deeper levels don't indent further, so names still fit on a phone
+- "New folder" creates the folder inside the open folder (the line under the search box says where); folders also have "New folder inside"
+- "Move to…" for notes, task lists and folders: hover buttons for notes and lists on a computer, the ⋯ menu on phones and for folders. It lists every folder, indented, and marks where the item is now
+- Dragging notes, task lists and folders onto a folder in the sidebar, or onto empty sidebar space for the top level (computers only); holding over a closed folder opens it
+- The app's own delete window, with "Yes, delete" and "Cancel", for every delete
+
+Changed
+- Deleting a folder deletes the folders inside it too, all restorable together from Recently deleted; restoring a single note from a deleted folder brings back its folder and the folders around it
+- The folder menu above an open note or list, search results ("Garden › Vegetables") and exports (folders inside folders) all show the nesting
+- On a computer, a folder's hover shows a single ⋯ (four buttons didn't fit)
+
+Why
+- Nested folders and moving were first on Oscar's list after the MVP
+- The browser's own "Are you sure?" can only say OK and Cancel
+
+Notes for later
+- A folder can't be moved into itself or a folder inside it, by either method
+- Moving tasks between task lists was set aside: copying the text works well enough
+- Tested: three levels of folders, indents, the folder menu, Move to… (including what it refuses), dragging to a folder and to the top level, the delete window (Cancel and Yes), deleting and restoring a whole folder tree and a single note from it, export paths and search paths. Dragging with a real mouse and the phone layout weren't tried by hand
+- Plan updated to version 0.18
+
 ## 0.8.1 (Oct 22, 2026)
 
 Changed
