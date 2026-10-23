@@ -4,7 +4,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '0.9'; // must match the version in storage.js
+const APP_VERSION = '0.10'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const UNDO_SECONDS = 10;
 const NO_RETRIEVE = 'There is no way to retrieve this.';
@@ -1024,18 +1024,40 @@ function makeDropTarget(row, folder) {
 
 // ---- Drawing the sidebar ----
 
-function folderRows(parentId, depth) {
+// One level of the sidebar: pinned folders, then pinned notes or task lists,
+// then the other folders (alphabetical) and items (most recently edited).
+function levelRows(parentId, depth) {
   const rows = [];
   const activeId = findFolder(view().activeFolderId) ? view().activeFolderId : null;
   if (state.editingFolderId === NEW_FOLDER && activeId === parentId) rows.push(folderNameInput(null));
-  for (const folder of childFolders(parentId)) {
-    rows.push(state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder, depth));
-  }
+  const folders = childFolders(parentId);
+  const items = itemsIn(parentId);
+  const folderLine = folder => (state.editingFolderId === folder.id ? folderNameInput(folder) : folderRow(folder, depth));
+  rows.push(
+    ...folders.filter(f => f.pinned).map(folderLine),
+    ...items.filter(i => i.pinned).map(itemRow),
+    ...folders.filter(f => !f.pinned).map(folderLine),
+    ...items.filter(i => !i.pinned).map(itemRow)
+  );
   return rows;
 }
 
+// Pinning isn't editing, so an item's "last edited" date stays the same.
+async function togglePin(kind, record) {
+  record.pinned = !record.pinned;
+  if (kind === 'folder') await runSave(() => Storage.saveFolder(record));
+  else await runSave(() => side().save(record));
+  render();
+}
+
+const pinMark = () => {
+  const mark = el('span', 'pin-mark', '📌');
+  mark.setAttribute('aria-label', 'Pinned');
+  return mark;
+};
+
 function renderSidebar() {
-  els.tree.replaceChildren(...folderRows(null, 0), ...itemsIn(null).map(itemRow));
+  els.tree.replaceChildren(...levelRows(null, 0));
   renderSearch();
 
   // Recently deleted sits at the bottom of the sidebar, apart from the folders.
@@ -1061,15 +1083,19 @@ function itemRow(item) {
     row.classList.add('is-current');
     open.setAttribute('aria-current', 'true');
   }
+  if (item.pinned) open.append(pinMark());
   open.append(el('span', 'item-title', title), el('span', 'item-date', formatDate(item.updatedAt)));
 
   const move = () => openMoveDialog({ kind: 'item', id: item.id }, title);
+  const pinLabel = item.pinned ? 'Unpin' : 'Pin';
   const actions = el('span', 'item-actions');
   actions.append(
+    button('icon-button', pinLabel, `${pinLabel} ${title}`, () => togglePin('item', item)),
     button('icon-button', 'Move', `Move ${title}`, move),
     button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item))
   );
   const more = moreButton(`More for ${title}`, [
+    { label: pinLabel, run: () => togglePin('item', item) },
     { label: 'Move to…', run: move },
     { label: 'Delete', danger: true, run: () => deleteItem(item) },
   ]);
@@ -1083,7 +1109,7 @@ function itemRow(item) {
 function folderRow(folder, depth) {
   const isOpen = view().openFolderIds.has(folder.id);
   const items = itemsIn(folder.id);
-  const children = folderRows(folder.id, depth + 1);
+  const children = isOpen ? levelRows(folder.id, depth + 1) : [];
   const li = el('li', 'folder');
   li.classList.toggle('is-open', isOpen);
 
@@ -1092,10 +1118,13 @@ function folderRow(folder, depth) {
 
   const toggle = button('row', undefined, undefined, () => toggleFolder(folder));
   toggle.setAttribute('aria-expanded', String(isOpen));
-  toggle.append(el('span', 'chevron'), el('span', 'folder-name', folder.name), el('span', 'folder-count', String(items.length)));
+  toggle.append(el('span', 'chevron'));
+  if (folder.pinned) toggle.append(pinMark());
+  toggle.append(el('span', 'folder-name', folder.name), el('span', 'folder-count', String(items.length)));
 
   const move = () => openMoveDialog({ kind: 'folder', id: folder.id }, folder.name);
   const choices = [
+    { label: folder.pinned ? 'Unpin' : 'Pin', run: () => togglePin('folder', folder) },
     { label: 'New folder inside', run: () => newFolderInside(folder) },
     { label: 'Rename', run: () => startEditingFolder(folder.id) },
     { label: 'Move to…', run: move },
@@ -1119,8 +1148,7 @@ function folderRow(folder, depth) {
     const list = el('ul', 'folder-items');
     list.style.paddingLeft = `${indentFor(depth + 1)}px`;
     list.append(...children);
-    if (items.length === 0 && children.length === 0) list.append(el('li', 'empty-folder', `No ${side().plural} yet`));
-    for (const item of items) list.append(itemRow(item));
+    if (children.length === 0) list.append(el('li', 'empty-folder', `No ${side().plural} yet`));
     li.append(list);
   }
   return li;
@@ -1199,6 +1227,7 @@ function renderMain() {
 
   els.titleInput.placeholder = side().titlePlaceholder;
   els.deleteItem.textContent = side().deleteLabel;
+  els.pinItem.textContent = item.pinned ? 'Unpin' : 'Pin';
   const options = [new Option('Top level', '')];
   const addOptions = (parentId, depth) => {
     for (const folder of childFolders(parentId)) {
@@ -2145,6 +2174,10 @@ function wireEvents() {
   byId('links-back').addEventListener('click', () => openPage('settings'));
   for (const back of document.querySelectorAll('.page-back')) back.addEventListener('click', goBack);
   byId('share-item').addEventListener('click', openSharePanel);
+  byId('pin-item').addEventListener('click', () => {
+    const item = currentItem();
+    if (item) togglePin('item', item);
+  });
   els.shareSend.addEventListener('click', () => shareAction('send'));
   els.shareNew.addEventListener('click', () => shareAction('new'));
   els.shareOff.addEventListener('click', () => shareAction('off'));
@@ -2297,6 +2330,7 @@ async function init() {
     confirmMessage: byId('confirm-message'),
     confirmYes: byId('confirm-yes'),
     confirmNo: byId('confirm-no'),
+    pinItem: byId('pin-item'),
     search: byId('search'),
     searchClear: byId('search-clear'),
     searchResults: byId('search-results'),

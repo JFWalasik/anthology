@@ -39,10 +39,10 @@ const Storage = (() => {
 
   // How each kind of record is written in the database, and read back.
   const toRow = {
-    folders: f => ({ id: f.id, name: f.name, parent_id: f.parentId ?? null, created_at: f.createdAt, updated_at: f.updatedAt }),
-    notes: n => ({ id: n.id, folder_id: n.folderId ?? null, body: n.body, created_at: n.createdAt, updated_at: n.updatedAt }),
+    folders: f => ({ id: f.id, name: f.name, parent_id: f.parentId ?? null, pinned: Boolean(f.pinned), created_at: f.createdAt, updated_at: f.updatedAt }),
+    notes: n => ({ id: n.id, folder_id: n.folderId ?? null, body: n.body, pinned: Boolean(n.pinned), created_at: n.createdAt, updated_at: n.updatedAt }),
     taskLists: l => ({
-      id: l.id, folder_id: l.folderId ?? null, title: l.title, show_completed: l.showCompleted,
+      id: l.id, folder_id: l.folderId ?? null, title: l.title, show_completed: l.showCompleted, pinned: Boolean(l.pinned),
       created_at: l.createdAt, updated_at: l.updatedAt,
     }),
     tasks: t => ({
@@ -51,10 +51,10 @@ const Storage = (() => {
     }),
   };
   const fromRow = {
-    folders: r => ({ id: r.id, name: r.name, parentId: r.parent_id, createdAt: r.created_at, updatedAt: r.updated_at }),
-    notes: r => ({ id: r.id, folderId: r.folder_id, body: r.body, createdAt: r.created_at, updatedAt: r.updated_at }),
+    folders: r => ({ id: r.id, name: r.name, parentId: r.parent_id, pinned: Boolean(r.pinned), createdAt: r.created_at, updatedAt: r.updated_at }),
+    notes: r => ({ id: r.id, folderId: r.folder_id, body: r.body, pinned: Boolean(r.pinned), createdAt: r.created_at, updatedAt: r.updated_at }),
     taskLists: r => ({
-      id: r.id, folderId: r.folder_id, title: r.title, showCompleted: r.show_completed,
+      id: r.id, folderId: r.folder_id, title: r.title, showCompleted: r.show_completed, pinned: Boolean(r.pinned),
       createdAt: r.created_at, updatedAt: r.updated_at,
     }),
     tasks: r => ({
@@ -828,7 +828,7 @@ const Storage = (() => {
 
     const folders = input.folders
       .filter(f => isRecord(f) && typeof f.name === 'string')
-      .map(f => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, createdAt: time(f.createdAt), updatedAt: time(f.updatedAt) }));
+      .map(f => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, pinned: f.pinned === true, createdAt: time(f.createdAt), updatedAt: time(f.updatedAt) }));
     const folderIds = new Set(folders.map(f => f.id));
     for (const folder of folders) {
       if (!folderIds.has(folder.parentId)) folder.parentId = null;
@@ -840,6 +840,7 @@ const Storage = (() => {
         id: n.id,
         folderId: folderIds.has(n.folderId) ? n.folderId : null,
         body: n.body,
+        pinned: n.pinned === true,
         createdAt: time(n.createdAt),
         updatedAt: time(n.updatedAt),
       }));
@@ -851,6 +852,7 @@ const Storage = (() => {
         folderId: folderIds.has(l.folderId) ? l.folderId : null,
         title: typeof l.title === 'string' ? l.title : '',
         showCompleted: l.showCompleted !== false,
+        pinned: l.pinned === true,
         createdAt: time(l.createdAt),
         updatedAt: time(l.updatedAt),
       }));
@@ -889,7 +891,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '0.9', // must match APP_VERSION in app.js
+    version: '0.10', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
