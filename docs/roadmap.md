@@ -28,7 +28,7 @@ Done since this was written: folders inside folders, and moving and dragging (0.
    - Pinned notes and task lists are ordered by most recently edited; pinned folders stay alphabetical. A small pin mark shows on each.
    - Pin and Unpin: in the ⋯ menu (phones, and folders on a computer), as a hover button for notes and lists on a computer, and in the bar above an open note or task list.
    - Backups and restores keep pins; Markdown exports don't show them.
-3. **Subtasks** (medium). Needs a database script, and a decision on how they appear in exports and shared pages.
+3. **Subtasks, and headings in task lists** (medium). Needs a database script, and a decision on how they appear in exports and shared pages. Headings: a task marked as a heading (no checkbox, a little larger), so one list can have sections, such as "Phone" and "Desk" (raised Oct 23, 2026).
 4. **Due dates and task priorities** (small each). Each needs a database script.
 5. **Formatting toolbar (rich text)** (large). Bold, lists and headings with buttons. Adds a library and touches the editor, export, search and shared pages; best once the basics above feel settled.
 6. **Show a folder on only one side** (small). Needs a database script.
