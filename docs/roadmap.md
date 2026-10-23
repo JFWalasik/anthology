@@ -21,6 +21,7 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 
 ## Better at the desk, in suggested order
 
+0. **Split app.js into smaller files — do this next** (one session). Decided Oct 23, 2026. No visible change; it makes later work, especially from the phone, easier. Plain files, no build step; index.html loads them in order. Planned split: app.js (shared state, helpers, start-up, drawing the page), sidebar.js (folders, nesting, pinning, moving, dragging), editor.js (editing notes), tasks.js (task lists, tasks, reordering, Undo), sharing.js (Share panel, Shared links page, the shared page), search.js, backup.js (export, restore, reminder), access.js (access screen, sign out), pages.js (Settings and help, Recently deleted), ui.js (menus, delete and move windows, Undo message). storage.js and export.js stay as they are. Also: add the new files to sw.js's file list, bump the version, add a one-line file map to CLAUDE.md, and test every feature afterwards.
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
 2. **Pinned items** (small). Needs a database script for the "pinned" mark on folders, notes and task lists. Decided Oct 23, 2026 (planned as 0.10):
    - Folders, notes and task lists can all be pinned. Folders are shared by both sides, so a pinned folder is pinned on both.
