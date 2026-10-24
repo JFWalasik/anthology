@@ -21,7 +21,7 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 
 ## Better at the desk, in suggested order
 
-0. **A message when something you deleted comes back** (small; no database script). If an item you deleted, or deleted for good, is changed afterwards on another device, the change wins and it comes back. A short message bar would say so, for example: A note you deleted, "Shopping", came back because it was changed on another device. Each device remembers what it deleted for 30 days. Planned as 1.2 (decided Oct 24, 2026).
+0. **A message when something you deleted comes back** (small; no database script). If an item you deleted, or deleted for good, is changed afterwards on another device, the change wins and it comes back. A short message bar would say so, for example: A note you deleted, "Shopping", came back because it was changed on another device. Each device remembers what it deleted for 30 days. Planned as 1.1.2, a follow-up to the 1.1.1 fix (decided Oct 24, 2026).
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
 2. **Pinned items** (small). Needs a database script for the "pinned" mark on folders, notes and task lists. Decided Oct 23, 2026 (planned as 0.10):
    - Folders, notes and task lists can all be pinned. Folders are shared by both sides, so a pinned folder is pinned on both.
