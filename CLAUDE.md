@@ -12,6 +12,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 - When you don't know why something is happening, say so. When there's more than one plausible explanation or approach, lay out the options with a rough confidence level for each.
 - Writing style: light formatting, with bold mainly for headings. No all caps in titles or headings. Use em dashes sparingly. Avoid words like landscape, realm, delve, meticulous and intricacies, and avoid the "it's not x, it's y" phrasing.
 - At the end of a session, give a short summary of what changed and a suggested next step.
+- docs/quickstart.md: propose any change to Oscar first, with the exact wording, and make it only once he's okayed it. Oscar keeps his own copy of the quickstart as a note in the app (folder Apps, then Anthology app), so after changing docs/quickstart.md, make the same change to that note too (it's plain text, without the Markdown marks: no bold or # headings, and lists as "- " lines), in the app on the test copy while signed in, or tell Oscar what to change if that isn't possible.
 
 ## How the app is built
 

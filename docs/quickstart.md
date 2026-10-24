@@ -93,7 +93,7 @@ A custom domain (like anthologynotes.com, about $10 to $15 a year) changes the a
 - **Keep main working:** changes go live as soon as they're pushed or merged. Keep phone changes small.
 - **Never paste the secret key or any password into a chat.** The publishable key is designed to be public.
 - **What could cost money:** Supabase's paid plan (if usage grew a lot, or to avoid pausing), and a domain. Everything else is free.
-- **The app's code is split by feature** (since 1.1): app.js plus a file each for the sidebar, editor, tasks, sharing, search, backups, access, pages and shared pieces. CLAUDE.md has the map.
+- **The app's code is split by feature** (since 1.1). Versions 0.1 to 0.10 kept all of it in one file, app.js (about 2,400 lines). In 1.1 that code was divided, unchanged, into app.js (the shared core, which starts the app) and nine feature files: sidebar, editor, tasks, sharing, search, backup, access, pages, and ui (pieces several features use). Smaller files make changes easier, especially from the phone. CLAUDE.md has the map.
 
 ## Key terms
 
