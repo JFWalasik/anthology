@@ -10,7 +10,8 @@
 //   changed on other devices is fetched. If the same item was changed in two
 //   places, the later change wins; the database checks this too.
 // - Deleting marks a record as deleted in the database instead of erasing
-//   it, so other devices learn about the deletion.
+//   it, so other devices learn about the deletion. Erasing for good leaves a
+//   blank placeholder marked erased, for the same reason (from 1.1.1).
 // - Each person's copy on a device is kept separately, and cleared when they
 //   sign out.
 //
@@ -139,14 +140,21 @@ const Storage = (() => {
   }
 
   // Adds changes to the outbox. A later change to the same record replaces an
-  // earlier one that hasn't been sent yet. "erase" removes the record from the
-  // database entirely, rather than marking it deleted.
+  // earlier one that hasn't been sent yet. "erase" (Delete now, Empty, and
+  // blank items discarded) leaves a blank placeholder marked erased, with the
+  // text removed, so every device learns to remove the item too, even one that
+  // was offline at the time. The placeholder is removed after 30 days, like
+  // other deleted records (see eraseExpired). From 1.1.1; before that, erasing
+  // removed the record outright, and devices that already had it never heard.
+  const CONTENT = { folders: 'name', notes: 'body', taskLists: 'title', tasks: 'text' };
+
   function queue(changes) {
     const outbox = readOutbox();
     for (const { kind, record, deleted, erase } of changes) {
-      outbox[`${kind}:${record.id}`] = erase
-        ? { kind, erase: true, id: record.id, stamp: `${Date.now()}-${Math.random()}` }
-        : { kind, row: { ...toRow[kind](record), deleted }, stamp: `${Date.now()}-${Math.random()}` };
+      const row = erase
+        ? { ...toRow[kind](record), [CONTENT[kind]]: '', deleted: true, erased: true, updated_at: Date.now() }
+        : { ...toRow[kind](record), deleted, erased: false };
+      outbox[`${kind}:${record.id}`] = { kind, row, stamp: `${Date.now()}-${Math.random()}` };
     }
     writeOutbox(outbox);
     scheduleSync();
@@ -325,6 +333,7 @@ const Storage = (() => {
       for (let start = 0; start < ofKind.length; start += 500) {
         const chunk = ofKind.slice(start, start + 500);
         const saves = chunk.filter(([, entry]) => !entry.erase).map(([, entry]) => entry.row);
+        // Only outboxes from before 1.1.1 can still hold an outright erase.
         const erases = chunk.filter(([, entry]) => entry.erase).map(([, entry]) => entry.id);
         if (saves.length) {
           const { error } = await client.from(TABLE[kind]).upsert(saves);
@@ -374,6 +383,14 @@ const Storage = (() => {
         const index = data[kind].findIndex(r => r.id === row.id);
         const inTrash = data.trash.findIndex(e => e.kind === kind && e.record.id === row.id);
         const record = fromRow[kind](row);
+        if (row.erased) {
+          // Erased for good on another device: remove it here too, including
+          // from Recently deleted.
+          if (index !== -1) data[kind].splice(index, 1);
+          if (inTrash !== -1) data.trash.splice(inTrash, 1);
+          if (index !== -1 || inTrash !== -1) changed = true;
+          continue;
+        }
         if (row.deleted) {
           // Deleted on another device: move it to Recently deleted here too.
           if (index !== -1) {
@@ -891,7 +908,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '1.1', // must match APP_VERSION in app.js
+    version: '1.1.1', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),

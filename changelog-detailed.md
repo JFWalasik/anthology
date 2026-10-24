@@ -1,5 +1,27 @@
 # Changelog (detailed)
 
+## 1.1.1 (Oct 24, 2026)
+
+Fixed
+- "Delete now", "Empty" and the quiet discarding of blank notes and tasks removed the item from the database outright, so another device that already had a copy never found out and kept it. If the item hadn't yet synced as deleted (deleted for good within a second or two, or while offline), it stayed there as a normal note; otherwise it stayed in that device's Recently deleted for 30 days. Found when the smoke test's TEST items stayed on the desktop app, which was open during testing
+
+Changed
+- Erasing now keeps a blank row for the item in the database, with its text removed and a new "erased" column set to yes. Every device that sees it removes the item, from its notes and its Recently deleted. The existing daily tidy-up removes these rows after 30 days
+- supabase/005_delete_everywhere.sql adds the "erased" column (run Oct 24, 2026)
+- Help ("Syncing and working offline") now says that something deleted and then changed on another device comes back, by design
+
+Added
+- Smoke test: checks that Delete now leaves the blank erased row, that an item erased on "another device" disappears here, and that clean-up leaves every TEST item erased in the database itself
+
+Why
+- So "deleted for good" means the same thing on every device, and the smoke test can clean up after itself everywhere
+
+Notes for later
+- Devices still running 1.1 when they first see an erased row show it as a blank "New note" in Recently deleted; it goes when it expires, or with Delete now. Only during the switch-over
+- A device offline for more than 30 days can still miss an erase, because the blank row is gone by then
+- If something deleted is changed afterwards on another device, the change wins and it comes back (unchanged rule). A message saying so is on the roadmap
+- Tested: smoke test 147 of 147, twice. One "400" (refused request) appeared once in the console before the second run and couldn't be reproduced; possibly from the switch from cached 1.1 files
+
 ## 1.1 (Oct 23, 2026)
 
 Changed

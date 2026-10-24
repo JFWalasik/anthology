@@ -9,7 +9,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '1.1'; // must match the version in storage.js
+const APP_VERSION = '1.1.1'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const CAN_RESTORE = 'You can restore it from Recently deleted for 30 days.';
 const NEW_FOLDER = 'new';

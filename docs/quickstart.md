@@ -54,7 +54,7 @@ Written Oct 23, 2026, at version 0.9; updated at 1.1. A short refresher for comi
 1. SQL Editor, then Create a new snippet.
 2. Paste the whole script and click Run. A warning about "destructive operations" is normal for scripts that change permissions.
 3. "Success. No rows returned" means it worked. Anything else: paste the message to Claude.
-4. Scripts run so far: 001 (tables, access rules, allowed list), 002 (sharing), 003 (edit links), 004 (pinned items).
+4. Scripts run so far: 001 (tables, access rules, allowed list), 002 (sharing), 003 (edit links), 004 (pinned items), 005 (Delete now reaches every device: when an item is deleted for good, with Delete now or Empty, it's removed from other devices that had it, including their Recently deleted).
 
 **Look, but be careful:** Table Editor shows all data, including other people's notes. Editing there skips the app's safety checks, so avoid it except for allowed_emails.
 
@@ -101,6 +101,7 @@ A custom domain (like anthologynotes.com, about $10 to $15 a year) changes the a
 - Changes from another device or an edit link take 15 seconds or more to appear.
 - If two people edit the same note at the same moment, the later save wins for the whole note (task lists are safer).
 - On iPhone, the home-screen app signs in separately from Safari.
+- If something you deleted is changed afterwards on another device (for example one that was offline), the change wins and it comes back, so nothing is lost. By design; a message saying so is on the roadmap.
 - Free-plan limits: 30 access emails an hour; 500 MB of data (a very large number of notes).
 
 ## 9. Other things worth knowing

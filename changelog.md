@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 1.1.1 (Oct 24, 2026)
+Delete now and Empty reach every device: something deleted for good no longer stays on another device that already had it.
+
 ## 1.1 (Oct 23, 2026)
 Behind the scenes: the app's code is split into smaller files, one per feature, with a checklist and an automatic test of every feature. Nothing looks or works differently. Numbering skips 1.0, since the app has been dependable for daily use since about 0.8.
 

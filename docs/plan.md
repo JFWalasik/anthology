@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.20 · started Oct 20, 2026 · updated Oct 23, 2026 · owner: Oscar
+Plan version 0.21 · started Oct 20, 2026 · updated Oct 24, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -54,6 +54,7 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 9. **0.9, Folders inside folders, and moving.** Folders can hold folders, with indents that shrink at each level and stop after four. "Move to…" for notes, task lists and folders everywhere, and dragging onto folders on a computer. Deleting uses the app's own window, with "Yes, delete" and "Cancel".
 10. **0.10, Pinned items.** Folders, notes and task lists can be pinned to the top of their own level.
 11. **1.1, app.js split into smaller files.** One file per feature, with no visible change, so later work (especially from the phone) touches less code. Also a test checklist and a smoke test that clicks through every feature on the test copy.
+   **1.1.1, Delete now reaches every device.** Deleting for good leaves a blank row marked erased in the database for 30 days, so other devices that had the item remove it too.
 12. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 The app has been dependable for daily use since about 0.8 (the MVP, with sharing from 0.7), so numbering moved past 1.0 and continues at 1.1 (decided Oct 23, 2026).

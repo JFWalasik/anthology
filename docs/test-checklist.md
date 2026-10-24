@@ -23,9 +23,11 @@ What it covers:
 - **Recently deleted:** delete window wording, the count, details ("Note · deleted … · 30 days left"), Restore, "Delete now", Empty (opened and cancelled only), deleting and restoring a folder with a folder and note inside
 - **Settings and Shared links:** open, back, the version number
 - **Sharing:** view link, edit link, the explanations, Make a new link (the old one stops working), Turn off link (in the panel and on the Shared links page), the shared page itself (view: read-only with its footer; edit: editable, saves, and the change reaches the owner)
-- **Export and restore:** the file name, Markdown files in folder paths, the task list, the backup file; erasing a note for good and getting it back with "Add what's missing"; the restore window cancelled. No file is saved and the real "last export" date isn't changed
+- **Export and restore:** the file name, Markdown files in folder paths, the task list, the backup file; erasing a note for good (and the blank erased row it leaves in the database) and getting it back with "Add what's missing"; the restore window cancelled. No file is saved and the real "last export" date isn't changed
 - **Export reminder:** shows when due (with made-up dates), Not now hides it
+- **Erasing on other devices** (from 1.1.1): a note erased on "another device" (written straight to the database) disappears here, from notes and Recently deleted
 - **Access screen:** shown, starts with the email form, plain error messages. Nothing is sent
+- **Clean-up:** every TEST item is gone here, and erased in the database, so other devices remove it too
 
 ## 2. By hand
 
@@ -40,7 +42,7 @@ What it covers:
 - "Replace everything" in a restore (it would replace real data)
 - Emptying Recently deleted for real
 - A real phone, a real trackpad, and Chrome's own Save window for exports
-- Two separate devices; the edit-link test above covers changes arriving from elsewhere
+- Two separate devices; the edit-link test and the erase test above cover changes arriving from elsewhere. Before 1.1.1, the smoke test's TEST items stayed on any other device that had the app open
 
 ## Known quirks (as of 0.10)
 
@@ -50,3 +52,4 @@ What it covers:
 
 - **0.10, before the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: all fine, no console errors.
 - **1.1, after the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: the same results as 0.10 at every step, no console errors. All 21 files in sw.js's list load.
+- **1.1.1 (Oct 24, 2026):** smoke test 147 ok, 0 failed, twice. One refused request (400) appeared once in the console and couldn't be reproduced.

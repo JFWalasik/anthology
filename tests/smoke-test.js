@@ -1,9 +1,10 @@
 // tests/smoke-test.js
 // A quick check of every feature, run in the test copy (localhost) while signed
 // in. It clicks and types the way a person would, and reports what happened.
-// It only touches items whose titles start with "TEST", and removes them at
-// the end. Export and restore happen in memory: no file is saved, the "last
-// export" date isn't changed, and "Replace everything" is never chosen.
+// It only touches items whose titles start with "TEST", and erases them at
+// the end, on every device (from 1.1.1, with database script 005). Export
+// and restore happen in memory: no file is saved, the "last export" date
+// isn't changed, and "Replace everything" is never chosen.
 //
 // To run it, in the browser's console (or ask Claude) on http://localhost:8765:
 //   await import('./tests/smoke-test.js?' + Date.now()); await smokeTest();
@@ -135,6 +136,10 @@ window.smokeTest = async function smokeTest() {
   const folderByName = name => state.folders.find(f => f.name === name);
   const openTaskTexts = () => $$('#open-tasks .task-text').map(i => i.value);
   const doneTaskTexts = () => $$('#done-tasks .task-text').map(i => i.value);
+
+  // A second connection to the database, signed in as the same person: it
+  // checks what reached the database, and plays "another device".
+  const db = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
 
   // The app's own alert() messages are collected instead of shown.
   const alerts = [];
@@ -541,12 +546,16 @@ window.smokeTest = async function smokeTest() {
       // Erase TEST note B for good, then add it back from the export.
       await click('#settings-pane .page-back');
       await openRow('TEST note B');
+      const noteBId = currentItem().id;
       await click('#delete-item');
       await answerConfirm(true);
       await click('#trash-link');
       await click(trashRow('TEST note B').querySelector('.danger'));
       same('Delete now asks first', await answerConfirm(true), 'Delete "TEST note B" now? There is no way to retrieve this.');
       check('Delete now erases it', !trashRow('TEST note B'));
+      await Storage.sync();
+      const { data: erasedRows } = await db.from('notes').select('body,deleted,erased').eq('id', noteBId);
+      same('Delete now leaves a blank erased placeholder in the database', erasedRows, [{ body: '', deleted: true, erased: true }]);
 
       window.showOpenFilePicker = async () => [{ getFile: async () => new File([savedBlob], savedName, { type: 'application/zip' }) }];
       await click('#settings-link');
@@ -557,6 +566,9 @@ window.smokeTest = async function smokeTest() {
       await waitFor(() => alerts.length > 0, 8000);
       same('Add what\'s missing adds only the erased note', alerts.at(-1), 'Added 1 note from the backup. Everything else was left as it is.');
       check('the note is back', Boolean(noteByTitle('TEST note B')));
+      await Storage.sync();
+      const { data: backRows } = await db.from('notes').select('deleted,erased').eq('id', noteBId);
+      same('the restored note is back in the database', backRows, [{ deleted: false, erased: false }]);
       await click('#restore-backup');
       await waitFor(() => byId('restore-dialog').open);
       await click('#restore-cancel');
@@ -584,6 +596,24 @@ window.smokeTest = async function smokeTest() {
       await renderReminder();
     }
     await click('#settings-pane .page-back');
+
+    // Erasing on another device reaches this one: the "other device" here
+    // writes an erased placeholder straight to the database.
+    await newItem('TEST erased elsewhere');
+    const elsewhere = { ...noteByTitle('TEST erased elsewhere') };
+    await openRow('TEST note B');
+    await Storage.sync();
+    const { data: liveRows } = await db.from('notes').select('id').eq('id', elsewhere.id);
+    same('a new note reaches the database', liveRows?.length, 1);
+    const { error: eraseError } = await db.from('notes').upsert({
+      id: elsewhere.id, folder_id: null, body: '', pinned: false, created_at: elsewhere.createdAt,
+      updated_at: Date.now(), deleted: true, erased: true,
+    });
+    check('the other device erases it', !eraseError, eraseError?.message);
+    await Storage.sync();
+    await waitFor(() => !noteByTitle('TEST erased elsewhere'), 8000);
+    check('a note erased on another device disappears here',
+      !noteByTitle('TEST erased elsewhere') && !Storage.listTrash().some(e => e.record.id === elsewhere.id));
 
     // The access screen (shown, then put back; nothing sent)
     showAccess('TEST message');
@@ -666,6 +696,18 @@ window.smokeTest = async function smokeTest() {
     render();
     const left = [...state.notes.map(noteTitle), ...state.taskLists.map(l => l.title), ...state.folders.map(f => f.name),
       ...Storage.listTrash().map(trashTitle)].filter(t => t.startsWith('TEST'));
-    check('clean-up removed every TEST item', left.length === 0, left.join(', '));
+    check('clean-up removed every TEST item here', left.length === 0, left.join(', '));
+
+    // In the database, everything the test made should now be an erased
+    // placeholder, so other devices remove it too.
+    await Storage.sync();
+    const notErased = [];
+    for (const [table, field] of [['notes', 'body'], ['task_lists', 'title'], ['folders', 'name']]) {
+      const { data, error } = await db.from(table).select(`id,${field}`).eq('erased', false)
+        .or(`${field}.like.TEST%,${field}.like.# TEST%`);
+      if (error) notErased.push(`${table}: ${error.message}`);
+      else notErased.push(...data.map(row => `${table}: ${row[field].split('\n')[0]}`));
+    }
+    check('clean-up erased every TEST item in the database', notErased.length === 0, notErased.join(', '));
   }
 };
