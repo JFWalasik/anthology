@@ -101,7 +101,6 @@ A custom domain (like anthologynotes.com, about $10 to $15 a year) changes the a
 - Changes from another device or an edit link take 15 seconds or more to appear.
 - If two people edit the same note at the same moment, the later save wins for the whole note (task lists are safer).
 - On iPhone, the home-screen app signs in separately from Safari.
-- If something you deleted is changed afterwards on another device (for example one that was offline), the change wins and it comes back, so nothing is lost. By design; a message saying so is on the roadmap.
 - Free-plan limits: 30 access emails an hour; 500 MB of data (a very large number of notes).
 
 ## 9. Other things worth knowing
