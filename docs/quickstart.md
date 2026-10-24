@@ -20,6 +20,21 @@ Written Oct 23, 2026, at version 0.9; updated at 1.1. A short refresher for comi
 6. **Releasing:** each version updates the version number in app.js, storage.js and sw.js, plus both changelogs. Pushing makes it live.
 7. **Checking everything:** for changes that touch many features, docs/test-checklist.md lists what to test, and tests/smoke-test.js clicks through every feature on the test copy in about a minute (ask Claude to run it).
 
+**From the phone** (sessions run on GitHub's copy in the cloud, so the Mac can be off):
+
+1. In the Claude app, tap the menu button (three lines, top left) and choose Code. Tap New session. A button with the GitHub icon should show "anthology - main": Claude Code will work on the anthology repository on GitHub, starting from its main version. If it shows a different repository, tap it and choose anthology.
+2. **Check it's in the right place** before asking for anything: "Read CLAUDE.md and docs/roadmap.md, and tell me the app's current version." If it can't find those files, start a new session and choose anthology.
+3. Use Plan mode, and ask for one small change.
+4. When it's done, create the pull request with the button in the session, then merge it (or leave it for the next desk session, which offers to merge it).
+5. Check the change on the live app (on a phone, fully close and reopen it).
+6. Phone sessions can't sign in to the test copy or run the smoke test, so keep changes small; the next desk session can run the smoke test. If a change turns out to need a database script, stop and leave it for the desk.
+
+**If the GitHub button or "anthology" doesn't appear:**
+
+- Tap the button, if there is one, and look for anthology in the list; it may be set to another repository.
+- If anthology isn't in the list, the GitHub connection may need renewing. On the Mac, open claude.ai/code in a browser and follow its prompt to connect GitHub. Then check on GitHub that Claude can reach the repository: github.com/settings/installations, then Claude, then Repository access, which should include anthology. Then start a new session on the phone.
+- Don't do the work in a session without anthology chosen: Claude won't find the project's files or CLAUDE.md, and nothing it changes would reach the app.
+
 ## 3. Your accounts
 
 - **GitHub:** password and security key. **Supabase signs you in through GitHub** ("Continue with GitHub"), so there is no Supabase password, and your GitHub account protects everything. Keep its two-step sign-in on.
@@ -39,7 +54,7 @@ Written Oct 23, 2026, at version 0.9; updated at 1.1. A short refresher for comi
 1. SQL Editor, then Create a new snippet.
 2. Paste the whole script and click Run. A warning about "destructive operations" is normal for scripts that change permissions.
 3. "Success. No rows returned" means it worked. Anything else: paste the message to Claude.
-4. Scripts run so far: 001 (tables, access rules, allowed list), 002 (sharing), 003 (edit links).
+4. Scripts run so far: 001 (tables, access rules, allowed list), 002 (sharing), 003 (edit links), 004 (pinned items).
 
 **Look, but be careful:** Table Editor shows all data, including other people's notes. Editing there skips the app's safety checks, so avoid it except for allowed_emails.
 
