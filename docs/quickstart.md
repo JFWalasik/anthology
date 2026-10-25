@@ -14,11 +14,9 @@ Written Oct 23, 2026, at version 0.9; updated at 1.1. A short refresher for comi
 
 1. **Desk or phone?** docs/roadmap.md splits the work. Phone sessions suit small changes to the app itself; anything needing a *database script*, the Supabase dashboard, or careful testing is for the desk.
 2. **Tell Claude** something like: "Read docs/roadmap.md and docs/plan.md, then let's plan [feature]." CLAUDE.md is read automatically, and asks Claude to check GitHub for unmerged phone work first.
-3. **One feature per session.** Long sessions get summarised and lose detail; decisions should be written into the roadmap or plan before a session ends.
-4. **Which version is live?** In the app: Settings and help, at the bottom. On a phone, fully close and reopen the app to pick up an update.
-5. **Testing** happens on a test copy on the Mac (`localhost:8765`, in Claude's Browser pane), signed in with your account. Claude uses items titled "TEST…" and removes them afterwards. You may be asked to sign in there with an access code.
-6. **Releasing:** each version updates the version number in app.js, storage.js and sw.js, plus both changelogs. Pushing makes it live.
-7. **Checking everything:** for changes that touch many features, docs/test-checklist.md lists what to test, and tests/smoke-test.js clicks through every feature on the test copy in about a minute (ask Claude to run it).
+3. **Which version is live?** In the app: Settings and help, at the bottom. On a phone, fully close and reopen the app to pick up an update.
+4. **Testing** happens on a test copy on the Mac (`localhost:8765`, in Claude's Browser pane), signed in with your account. Claude uses items titled "TEST…" and removes them afterwards. You may be asked to sign in there with an access code.
+5. **Releasing:** each version updates the version number in app.js, storage.js and sw.js, plus both changelogs. Pushing makes it live.
 
 **From the phone** (sessions run on GitHub's copy in the cloud, so the Mac can be off):
 

@@ -13,7 +13,9 @@ This file gives guidance for working on the project. It's meant to be applied wi
 - Writing style: light formatting, with bold mainly for headings. No all caps in titles or headings. Use em dashes sparingly. Avoid words like landscape, realm, delve, meticulous and intricacies, and avoid the "it's not x, it's y" phrasing.
 - At the end of a session, give a short summary of what changed and a suggested next step.
 - Name things precisely. When mentioning a file, feature or function, give its exact name or path (for example docs/test-checklist.md, not "the checklist"), and when it's new, say so and when it was made (for example "created this session"), along with anything Oscar should know about it.
-- docs/quickstart.md: propose any change to Oscar first, with the exact wording, and make it only once he's okayed it. Oscar keeps his own copy of the quickstart as a note in the app (folder Apps, then Anthology app), so after changing docs/quickstart.md, make the same change to that note too (it's plain text, without the Markdown marks: no bold or # headings, and lists as "- " lines), in the app on the test copy while signed in, or tell Oscar what to change if that isn't possible.
+- docs/quickstart.md is Oscar's own refresher for restarting development after weeks or months away: how to start a session (desk or phone), and the Supabase and account steps he won't remember. Keep it short. Instructions for Claude belong here in CLAUDE.md, not in the quickstart.
+- Oscar's copy of the quickstart (a note in the app: Apps, then Anthology app) is the main copy, and he edits it himself. Whenever you're already signed in on the test copy for other work, compare it with docs/quickstart.md; if they differ, list the differences and ask Oscar before updating docs/quickstart.md to match. Never ask Oscar to sign in just for this, and don't let it hold up other work; if you're not signed in, it waits until a later time when you are. To suggest a change to the quickstart, propose the exact wording first; once okayed, change both copies (his is plain text: no bold or # headings, lists as "- " lines).
+- Before a session ends, write any decisions made into docs/roadmap.md or docs/plan.md, so the next session doesn't have to rediscover them.
 
 ## How the app is built
 
@@ -24,7 +26,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 - Keep the code that saves and loads data in one place, so the storage can change (browser storage now, Supabase from version 0.5) without rewriting the rest of the app.
 - Notes are plain text with light Markdown-style formatting for now. Rich text (a formatting toolbar) is planned soon, likely using a well-established editor library that needs no build step, so it helps to keep the note-editing code easy to swap out.
 - Data should always be exportable in common formats: Markdown for both notes and tasks (tasks as checklists), with a spreadsheet-style file for tasks as a possible later addition.
-- Folders are one level deep for now; nested folders are planned, so the data structure should leave room for them.
+- Folders can be nested to any depth (since 0.9), and are shared by the Notes and Tasks sides.
 - Notes can contain anything a person types, so text from notes should never be inserted into the page in a way that lets it run as code.
 
 ## Version tracking
