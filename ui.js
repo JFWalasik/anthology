@@ -105,10 +105,24 @@ function askConfirm(message, yesLabel = 'Yes, delete') {
 
 // ---- Buttons and keys ----
 
+// ---- Message bar ----
+// The bar at the bottom that also shows "Task deleted · Undo". A message stays
+// until OK is pressed, so it isn't missed.
+
+function showMessage(text) {
+  hideUndo();
+  els.toastText.textContent = text;
+  els.toast.classList.add('is-message');
+  els.toastUndo.hidden = true;
+  els.toastOk.hidden = false;
+  els.toast.hidden = false;
+}
+
 function wireUiEvents() {
   const byId = id => document.getElementById(id);
 
   byId('move-cancel').addEventListener('click', () => els.moveDialog.close());
+  els.toastOk.addEventListener('click', () => { els.toast.hidden = true; });
 
   // The ⋯ menu closes on a tap elsewhere, Escape, scrolling or resizing.
   document.addEventListener('pointerdown', event => {

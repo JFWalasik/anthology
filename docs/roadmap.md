@@ -9,7 +9,7 @@ The list is split by where each item is best worked on:
 - **Phone-friendly:** changes only to the app's own files (how it looks and behaves), easy to check on the live app once merged. A phone session's change goes live as soon as its pull request is merged, so these are kept small and low-risk.
 - **Better at the desk:** anything needing a database script (pasted into Supabase's SQL editor), the Supabase dashboard, a new account, or careful testing across devices. Several small-sounding items need a new piece of information stored in the database (for example "pinned" or a due date), which is why they're here.
 
-Done since this was written: folders inside folders, and moving and dragging (0.9); pinned items (0.10); app.js split into smaller files (1.1); Delete now reaching every device (1.1.1). Moving tasks between lists was set aside: copying the text works well enough.
+Done since this was written: folders inside folders, and moving and dragging (0.9); pinned items (0.10); app.js split into smaller files (1.1); Delete now reaching every device (1.1.1); a message when something deleted comes back (1.1.2). Moving tasks between lists was set aside: copying the text works well enough.
 
 ## Phone-friendly, in suggested order
 
@@ -21,7 +21,6 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 
 ## Better at the desk, in suggested order
 
-0. **A message when something you deleted comes back** (small; no database script). If an item you deleted, or deleted for good, is changed afterwards on another device, the change wins and it comes back. A short message bar would say so, for example: A note you deleted, "Shopping", came back because it was changed on another device. Each device remembers what it deleted for 30 days. Planned as 1.1.2, a follow-up to the 1.1.1 fix (decided Oct 24, 2026).
 1. **Twice-yearly scheduled check by Claude** (small). The plan's first step after the MVP: a scheduled run that checks Supabase pricing, the library version and GitHub alerts, and sends a short summary. Setting up a scheduled run is easiest at the desk.
 2. **Pinned items** (small). Needs a database script for the "pinned" mark on folders, notes and task lists. Decided Oct 23, 2026 (planned as 0.10):
    - Folders, notes and task lists can all be pinned. Folders are shared by both sides, so a pinned folder is pinned on both.

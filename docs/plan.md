@@ -1,6 +1,6 @@
 # Anthology: plan
 
-Plan version 0.21 · started Oct 20, 2026 · updated Oct 24, 2026 · owner: Oscar
+Plan version 0.22 · started Oct 20, 2026 · updated Oct 24, 2026 · owner: Oscar
 
 This plan is the source of truth for the project. Changes are proposed first and recorded with an incremented plan version number.
 
@@ -55,6 +55,7 @@ The MVP is complete at version 0.8, when the app syncs between phone and compute
 10. **0.10, Pinned items.** Folders, notes and task lists can be pinned to the top of their own level.
 11. **1.1, app.js split into smaller files.** One file per feature, with no visible change, so later work (especially from the phone) touches less code. Also docs/test-checklist.md (what to test, and the results for each version) and tests/smoke-test.js (a script that clicks through every feature on the test copy).
    **1.1.1, Delete now reaches every device.** Deleting for good leaves a blank row marked erased in the database for 30 days, so other devices that had the item remove it too.
+   **1.1.2, A message when something deleted comes back.** If something deleted on one device is changed or restored on another, the change wins (as before) and a message says so.
 12. **Later.** First, set up the twice-yearly scheduled check by Claude. After that, work from the prioritized enhancements list below.
 
 The app has been dependable for daily use since about 0.8 (the MVP, with sharing from 0.7), so numbering moved past 1.0 and continues at 1.1 (decided Oct 23, 2026).

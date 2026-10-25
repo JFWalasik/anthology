@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 1.1.2 (Oct 24, 2026)
+A message says so when something you deleted comes back because it was changed or restored on another device.
+
 ## 1.1.1 (Oct 24, 2026)
 Delete now and Empty reach every device: something deleted for good no longer stays on another device that already had it.
 

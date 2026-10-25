@@ -615,6 +615,38 @@ window.smokeTest = async function smokeTest() {
     check('a note erased on another device disappears here',
       !noteByTitle('TEST erased elsewhere') && !Storage.listTrash().some(e => e.record.id === elsewhere.id));
 
+    // Something deleted here, then changed on another device, comes back with
+    // a message (from 1.1.2): once from Recently deleted, once after Delete now.
+    const bringBack = async (record, title) => {
+      const { error } = await db.from('notes').upsert({
+        id: record.id, folder_id: null, body: `${title}\nchanged on another device`, pinned: false,
+        created_at: record.createdAt, updated_at: Date.now(), deleted: false, erased: false,
+      });
+      check(`the other device changes "${title}"`, !error, error?.message);
+      await Storage.sync();
+      await waitFor(() => noteByTitle(title) && !byId('toast').hidden, 8000);
+    };
+    const cameBackText = title => `A note you deleted, "${title}", came back because it was changed or restored on another device.`;
+    for (const [title, eraseToo] of [['TEST back from deleted', false], ['TEST back from erased', true]]) {
+      await newItem(title);
+      const record = { ...noteByTitle(title) };
+      await click('#delete-item');
+      await answerConfirm(true);
+      if (eraseToo) {
+        await click('#trash-link');
+        await click(trashRow(title).querySelector('.danger'));
+        await answerConfirm(true);
+        await click('#trash-back');
+      }
+      await Storage.sync();
+      await bringBack(record, title);
+      check(`"${title}" is back`, Boolean(noteByTitle(title)) && !Storage.listTrash().some(e => e.record.id === record.id));
+      same(`message for "${title}"`, byId('toast').hidden ? null : byId('toast-text').textContent, cameBackText(title));
+      check('the message has OK, not Undo', !byId('toast-ok').hidden && byId('toast-undo').hidden);
+      await click('#toast-ok');
+      check('OK closes the message', byId('toast').hidden);
+    }
+
     // The access screen (shown, then put back; nothing sent)
     showAccess('TEST message');
     check('access screen shows', !isHidden(byId('access')) && isHidden(byId('layout')) && byId('access-message').textContent === 'TEST message');

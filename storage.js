@@ -70,7 +70,7 @@ const Storage = (() => {
   let syncRunning = null;
   let syncAgain = false;
   let status = 'idle';
-  const listeners = { change: [], status: [], signedOut: [] };
+  const listeners = { change: [], status: [], signedOut: [], cameBack: [] };
 
   // ---- Small helpers ----
 
@@ -117,14 +117,17 @@ const Storage = (() => {
   const prefsKey = () => (user ? `anthology.u.${user.id}.prefs` : 'anthology.prefs');
 
   // trash holds recently deleted records: { kind, record, deletedAt }.
+  // erasedHere lists what this device erased for good, { kind, id, at }, kept
+  // for 30 days so it can say so if another device brings one back.
   function emptyData() {
-    return { folders: [], notes: [], taskLists: [], tasks: [], trash: [], pulledAt: {} };
+    return { folders: [], notes: [], taskLists: [], tasks: [], trash: [], erasedHere: [], pulledAt: {} };
   }
 
   function readLocal() {
     const data = readJSON(dataKey(), null) || emptyData();
     for (const kind of KINDS) data[kind] = data[kind] || [];
     data.trash = data.trash || [];
+    data.erasedHere = data.erasedHere || [];
     data.pulledAt = data.pulledAt || {};
     return data;
   }
@@ -300,9 +303,9 @@ const Storage = (() => {
           const { data } = await client.auth.getSession();
           if (!data.session) return null;
           await push();
-          const changed = await pull();
+          const { changed, cameBack } = await pull();
           const expired = await eraseExpired();
-          return { changed, expired };
+          return { changed, cameBack, expired };
         })(), SYNC_TIMEOUT_MS);
         if (!result) {
           setStatus('offline');
@@ -310,6 +313,7 @@ const Storage = (() => {
         }
         setStatus(hasUnsynced() ? 'pending' : 'synced');
         if (result.changed || result.expired) emit('change');
+        if (result.cameBack.length) emit('cameBack', result.cameBack);
       } catch (err) {
         console.error('Sync failed; will try again', err);
         setStatus(navigator.onLine ? 'error' : 'offline');
@@ -353,7 +357,9 @@ const Storage = (() => {
   }
 
   // Fetches what changed in the database since this device last checked, and
-  // applies it. Returns true if anything on the device changed.
+  // applies it. Returns whether anything on the device changed, and anything
+  // deleted on this device that came back, because it was changed or restored
+  // on another device ({ kind, record } each).
   async function pull() {
     const before = readLocal();
     const fetched = {};
@@ -376,6 +382,7 @@ const Storage = (() => {
     const data = readLocal();
     const outbox = readOutbox();
     let changed = false;
+    const cameBack = [];
     for (const kind of KINDS) {
       for (const row of fetched[kind]) {
         if (!data.pulledAt[kind] || row.synced_at > data.pulledAt[kind]) data.pulledAt[kind] = row.synced_at;
@@ -404,11 +411,18 @@ const Storage = (() => {
           continue;
         }
         if (inTrash !== -1) {
-          // Restored on another device.
+          // Restored on another device, or changed there after being deleted here.
           data.trash.splice(inTrash, 1);
+          cameBack.push({ kind, record });
           changed = true;
         }
         if (index === -1) {
+          const erased = data.erasedHere.findIndex(e => e.kind === kind && e.id === row.id);
+          if (erased !== -1) {
+            // Erased here for good, then changed or restored on another device.
+            data.erasedHere.splice(erased, 1);
+            cameBack.push({ kind, record });
+          }
           data[kind].push(record);
           changed = true;
         } else if (data[kind][index].updatedAt <= record.updatedAt
@@ -419,7 +433,7 @@ const Storage = (() => {
       }
     }
     writeLocal(data);
-    return changed;
+    return { changed, cameBack };
   }
 
   // ---- Reading and saving, used by the rest of the app ----
@@ -668,6 +682,11 @@ const Storage = (() => {
     return true;
   }
 
+  function rememberErased(data, entries) {
+    const at = Date.now();
+    data.erasedHere.push(...entries.map(e => ({ kind: e.kind, id: e.record.id, at })));
+  }
+
   // Erases an item (and anything deleted along with it) for good.
   async function eraseForever(kind, id) {
     const data = readLocal();
@@ -675,6 +694,7 @@ const Storage = (() => {
     if (!entry) return;
     const gone = [entry, ...data.trash.filter(e => deletedWith(e, entry, data.trash))];
     data.trash = data.trash.filter(e => !gone.includes(e));
+    rememberErased(data, gone);
     writeLocal(data);
     queue(gone.map(e => ({ kind: e.kind, record: e.record, erase: true })));
   }
@@ -683,6 +703,7 @@ const Storage = (() => {
     const data = readLocal();
     const gone = data.trash;
     data.trash = [];
+    rememberErased(data, gone);
     writeLocal(data);
     queue(gone.map(e => ({ kind: e.kind, record: e.record, erase: true })));
   }
@@ -695,7 +716,9 @@ const Storage = (() => {
     const before = data.trash.length;
     data.trash = data.trash.filter(e => e.deletedAt >= cutoff);
     const changed = data.trash.length !== before;
-    if (changed) writeLocal(data);
+    const remembered = data.erasedHere.length;
+    data.erasedHere = data.erasedHere.filter(e => e.at >= cutoff);
+    if (changed || data.erasedHere.length !== remembered) writeLocal(data);
 
     if (!data.erasedAt || data.erasedAt < Date.now() - 24 * 60 * 60 * 1000) {
       for (const kind of KINDS) {
@@ -908,12 +931,13 @@ const Storage = (() => {
   }
 
   return {
-    version: '1.1.1', // must match APP_VERSION in app.js
+    version: '1.1.2', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
     onStatus: fn => listeners.status.push(fn),
     onSignedOut: fn => listeners.signedOut.push(fn),
+    onCameBack: fn => listeners.cameBack.push(fn),
     loadAll, saveNote, deleteNote, saveTaskList, deleteTaskList, saveTask, saveTasks, deleteTask,
     saveFolder, deleteFolder, replaceAll,
     listTrash, restore, eraseForever, emptyTrash, addMissing,

@@ -727,6 +727,9 @@ body.signed-out .side-toggle { display: none; }
 
 .toast .link { color: var(--paper); font-size: 15px; text-decoration-color: rgba(251, 248, 243, 0.5); }
 
+/* Longer messages wrap, and stay inside the screen on phones. */
+.toast.is-message { white-space: normal; width: max-content; max-width: min(560px, calc(100vw - 32px)); }
+
 /* ---- Phones ----
    Two screens: the list of folders and items, or the open item with a Back
    button. Typing fields are at least 16px, since iPhones zoom in on smaller ones. */

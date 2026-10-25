@@ -26,6 +26,7 @@ What it covers:
 - **Export and restore:** the file name, Markdown files in folder paths, the task list, the backup file; erasing a note for good (and the blank erased row it leaves in the database) and getting it back with "Add what's missing"; the restore window cancelled. No file is saved and the real "last export" date isn't changed
 - **Export reminder:** shows when due (with made-up dates), Not now hides it
 - **Erasing on other devices** (from 1.1.1): a note erased on "another device" (written straight to the database) disappears here, from notes and Recently deleted
+- **Deleted things coming back** (from 1.1.2): a TEST note deleted here (once still in Recently deleted, once after Delete now) is changed on "another device"; it comes back, the message names it, has OK rather than Undo, and OK closes it
 - **Access screen:** shown, starts with the email form, plain error messages. Nothing is sent
 - **Clean-up:** every TEST item is gone here, and erased in the database, so other devices remove it too
 
@@ -53,3 +54,4 @@ What it covers:
 - **0.10, before the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: all fine, no console errors.
 - **1.1, after the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: the same results as 0.10 at every step, no console errors. All 21 files in sw.js's list load.
 - **1.1.1 (Oct 24, 2026):** smoke test 147 ok, 0 failed, twice. One refused request (400) appeared once in the console and couldn't be reproduced.
+- **1.1.2 (Oct 24, 2026):** smoke test 157 ok, 0 failed, three times; the third run recorded every request, from the page and the shared-link frames, and none was refused. The console's one "400" is most likely the same old entry, which the Browser pane keeps across reloads. The message checked by eye at phone width.

@@ -81,11 +81,13 @@ A white Georgia "A" on the Notes blue (#1B1BA6), filling the square; phones roun
 - Tasks: Enter in "Add a task" adds the task and stays ready for the next. Enter in a task starts a new one right below it. Backspace in an empty task removes it. Blank tasks are cleared when you leave them. Checking a task crosses it out and moves it below the open ones.
 - Reordering tasks: drag by the handle (⋮⋮) on the left, with a mouse or a finger, or use ↑ and ↓ (on hover with a mouse, in the "⋯" menu on touch screens). The handle is always visible on touch screens. Tasks move within their own group, open or completed.
 - Deleting a single task doesn't ask first; instead a "Task deleted · Undo" message shows for 10 seconds. Deleting a task list asks first.
+- The same bar at the bottom shows other messages, with OK instead of Undo; these stay until OK is pressed, and longer ones wrap onto several lines. Used when something deleted comes back because it was changed or restored on another device (1.1.2).
 
 ## Decision log
 
 Newest first.
 
+- **Oct 24, 2026.** The message bar also shows messages that stay until OK (1.1.2), first used when something deleted comes back.
 - **Oct 23, 2026.** Pinned items (0.10): pinned things go to the top of their own level, with a small grey pin mark.
 
 - **Oct 23, 2026.** Folders inside folders (0.9): indents shrink at each level and stop after four; Move to… and dragging; the app's own delete window with "Yes, delete" (red) and "Cancel"; folders show a single ⋯ on hover.

@@ -148,6 +148,9 @@ function focusTask(taskId, atEnd = true) {
 function showUndo(task) {
   lastDeletedTask = { ...task };
   els.toastText.textContent = 'Task deleted';
+  els.toast.classList.remove('is-message');
+  els.toastUndo.hidden = false;
+  els.toastOk.hidden = true;
   els.toast.hidden = false;
   clearTimeout(undoTimer);
   undoTimer = setTimeout(hideUndo, UNDO_SECONDS * 1000);

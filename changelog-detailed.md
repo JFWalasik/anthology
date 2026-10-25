@@ -1,5 +1,21 @@
 # Changelog (detailed)
 
+## 1.1.2 (Oct 24, 2026)
+
+Added
+- A message when something deleted on this device comes back because it was changed or restored on another device: for example A note you deleted, "Shopping", came back because it was changed or restored on another device. Several at once: "3 things you deleted came back…". Things inside a folder or list that came back with it aren't counted separately
+- It covers items still in Recently deleted, and items deleted for good: each device keeps a list of what it erased (only the kind and the ID, not the text) for 30 days
+- The message uses the bar that shows "Task deleted · Undo", with OK instead of Undo, and stays until OK is pressed; longer messages wrap
+- Help ("Syncing and working offline"): "a message tells you when this happens"
+- Smoke test: a TEST note deleted here, once in Recently deleted and once after Delete now, is changed on "another device"; it comes back and the message names it
+
+Why
+- The later change wins, by design, so a deleted item can come back; without a message that would look like a mistake
+
+Notes for later
+- The message can't tell a change from a restore on the other device, so it says "changed or restored"
+- Tested: smoke test 157 of 157, three times; no refused requests in a run that recorded them all. The message checked by eye at phone width
+
 ## 1.1.1 (Oct 24, 2026)
 
 Fixed

@@ -9,7 +9,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '1.1.1'; // must match the version in storage.js
+const APP_VERSION = '1.1.2'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const CAN_RESTORE = 'You can restore it from Recently deleted for 30 days.';
 const NEW_FOLDER = 'new';
@@ -513,6 +513,22 @@ async function applyRemoteChanges() {
   }
 }
 
+// Something deleted on this device came back, because it was changed or
+// restored on another device (the later change wins). Say so, so it doesn't
+// look like a mistake. Things that came back inside a folder or list that also
+// came back aren't counted separately.
+const KIND_NAME = { folders: 'folder', notes: 'note', taskLists: 'task list', tasks: 'task' };
+
+function showCameBack(items) {
+  const ids = new Set(items.map(item => item.record.id));
+  const shown = items.filter(({ kind, record }) => !ids.has(kind === 'tasks' ? record.listId
+    : kind === 'folders' ? record.parentId : record.folderId));
+  if (!shown.length) return;
+  showMessage(shown.length === 1
+    ? `A ${KIND_NAME[shown[0].kind]} you deleted, "${trashTitle(shown[0])}", came back because it was changed or restored on another device.`
+    : `${shown.length} things you deleted came back because they were changed or restored on another device.`);
+}
+
 // On first sign-in in a browser that has notes from before 0.5, offer to add them.
 async function offerOldDeviceData() {
   const found = Storage.oldDeviceData();
@@ -618,6 +634,7 @@ function wireEvents() {
 
   Storage.onChange(applyRemoteChanges);
   Storage.onStatus(showSyncStatus);
+  Storage.onCameBack(showCameBack);
   Storage.onSignedOut(() => showAccess("You've been signed out. Enter your email to get back in."));
 }
 
@@ -647,6 +664,8 @@ async function init() {
     restoreFile: byId('restore-file'),
     toast: byId('toast'),
     toastText: byId('toast-text'),
+    toastUndo: byId('toast-undo'),
+    toastOk: byId('toast-ok'),
     menu: byId('menu'),
     trashPane: byId('trash-pane'),
     trashList: byId('trash-list'),
