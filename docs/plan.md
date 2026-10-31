@@ -30,7 +30,7 @@ Ten decisions are settled for now; any can be revisited as we learn.
 | Access and accounts | A 6-digit access code emailed from a dedicated Gmail account (anthologyaccess@gmail.com), with a link in the same email as a fallback; no password; stays signed in for months. Separate accounts per person. No open sign-up: people are added to an allowed list of emails | High | Needed so only each person can read and change their data. A code works in a home-screen app on iPhone, where a link would open Safari instead. Supabase's built-in email is for testing only, and the owner's personal email is off limits, so a dedicated account sends the codes. Reasons and alternatives are in docs/access-decisions.md |
 | Note format | Plain text with light Markdown-style formatting | Moderate | Exports cleanly; a formatting toolbar is planned soon after the MVP |
 | Folders | Folders inside folders (from 0.9), with no limit; shared by Notes and Tasks | High | Data designed from the start so nesting can be added. Shared folders keep a topic together, and hiding a folder on one side is easy to add later, while merging separate folders would not be |
-| Sharing | Links, no sign-in for viewers: view-only at 0.7, editable at 0.7.1. Shared items update live for viewers. Next (proposed, plan 0.23): sharing a note, task list or whole folder with a specific person, so it appears in both people's apps with offline editing; the sharer owns it | Moderate-high | Lowest friction for viewers. Links stay for people without Anthology. Sharing between accounts is wanted for working on the same notes while out with a poor connection; design in docs/sharing-design.md. Live co-editing remains on the enhancements list |
+| Sharing | Links, no sign-in for viewers: view-only at 0.7, editable at 0.7.1. Shared items update live for viewers. Next (proposed, plan 0.23): sharing a note, task list or whole folder with a specific person, so it appears in both people's apps with offline editing; the sharer owns it | Moderate-high | Lowest friction for viewers. Links stay for people without Anthology. Sharing between accounts is wanted for working on the same notes while out with a poor connection; decisions and build order in docs/roadmap.md, item 9. Live co-editing remains on the enhancements list |
 | Code home | Personal GitHub repository, public | Moderate | Simplest; can move to an organization later |
 | Hosting | GitHub Pages | Moderate | Free and simple; easy to move later (see shared links note) |
 | Export | Included in the MVP | High | Insurance against every other decision |
@@ -79,7 +79,9 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 | Due dates | Tasks | Claude | Soon | Small |
 | Task priorities | Tasks | Claude | Soon | Small |
 | Dark mode | Both | Claude | Soon | Small |
-| Edit sharing with specific people (shared items, including whole folders, appear in each person's own app, with offline editing; see docs/sharing-design.md) | Both | Oscar | Next | Large, in steps |
+| Edit sharing with specific people (shared items, including whole folders, appear in each person's own app, with offline editing; see docs/roadmap.md, item 9) | Both | Oscar | Next | Large, in steps |
+| Your name: a name you set in Settings and help, used by the app and shown to people you share with (email until then); part of sharing step 1, or earlier on its own | Both | Oscar | With sharing | Small |
+| Sharing with more than two people | Both | Oscar | Later | Medium |
 | A message naming who changed a shared item while you had it open ("Oscar changed this"; their email until they set a name), and a "typing" indicator (Supabase Realtime presence, free plan), for shared items | Both | Oscar | With sharing | Small, then medium |
 | "Save a copy to my Anthology" on a shared page | Both | Claude | Later | Small |
 | Formatting toolbar (rich text) | Notes | Oscar | Soon | Large |
@@ -155,7 +157,7 @@ Changes made from the phone appear in the live app only after they're merged.
 - [x] Whether Supabase's free plan includes the check that runs before an account is created (needed for the allowed list): yes, per Supabase's documentation.
 - [x] Email for access codes: a dedicated Gmail account. Supabase's built-in email only reaches the project's dashboard team, sends 2 emails an hour, can't be customized to include a code, and is meant for testing only.
 - [x] Write docs/access-decisions.md ("Access options and decisions"): why a database, Supabase versus Firebase, every access option considered, and why the dedicated Gmail account was chosen.
-- [ ] Sharing with specific people (plan 0.23, proposed Oct 31, 2026): design drafted in docs/sharing-design.md, with its own open questions. Awaiting Oscar's review before building.
+- [x] Sharing with specific people (plan 0.23, Oct 31, 2026): agreed with Oscar; decisions and build order in docs/roadmap.md, item 9. Two people for now.
 - [x] Connecting the Supabase project to GitHub: not for now. Database scripts are kept in the supabase folder and run by hand in the SQL editor.
 
 ## Upkeep: automated checks and a twice-yearly review

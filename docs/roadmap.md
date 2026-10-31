@@ -34,7 +34,16 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 6. **Show a folder on only one side** (small). Needs a database script.
 7. **Instant updates (Supabase Realtime)** (medium). Needs Supabase settings. Also look into the known issue: an open note sometimes doesn't update while being watched (seen in 0.7.2 testing).
 8. **"Invite someone" screen** (small). Needs a database script so the owner can add emails from the app. Worth doing when inviting more people.
-9. **Edit sharing with specific people** (large, in steps). Shared items, including whole folders, appear in each person's own app, with offline editing. Moved up by Oscar on Oct 31, 2026, to come next; design and build order in docs/sharing-design.md (created Oct 31, 2026).
+9. **Edit sharing with specific people** (large, in steps). Moved up by Oscar on Oct 31, 2026, to come next. Decided Oct 31, 2026 (plan 0.23):
+   - Share a note, task list or whole folder with a specific Anthology account. It appears in both people's apps with a shared mark, works offline, and syncs when the connection returns. Things added later to a shared folder are shared too. Two people for now; more is a later enhancement. Edit links stay, for people without Anthology.
+   - The sharer owns what they share and can rename or move it. Something the other person adds inside a shared folder is theirs. The other person can ask to rename or move the owner's item; the owner approves or declines.
+   - When the owner moves a shared item into one of their folders, the other person gets a folder of that name holding just that item, and a message next time they open the app. The owner can choose to share the whole folder instead.
+   - If one person deletes a shared item, the other sees it marked "Deleted by [name]" and chooses to keep it (it becomes theirs alone) or delete it. Stopping sharing works the same way for the other person.
+   - Messages always name the person (their name, or email until they set one): "Oscar changed this while you had it open". Pins are per person.
+   - Restoring a backup must not create duplicates of shared items.
+   - How: a new database table of who each item is shared with, and access rules changed so each person reaches their own items plus those shared with them (the most security-sensitive change so far; test with a third account that should see nothing). Syncing already fetches whatever the rules allow, so offline editing mostly follows. A "changed by" record on each item.
+   - Build order: 1.2 single notes and task lists, Your name, delete handling, the "changed while open" message (large, desk); 1.3 whole folders and move messages (medium); 1.4 asking the owner to rename or move (medium); later, a "typing" indicator with Supabase Realtime presence (free plan), alongside Instant updates (item 7).
+   - Testing needs a second account: anthologyaccess+test@gmail.com, added to allowed_emails when building starts (Gmail delivers it to the anthologyaccess inbox; not yet tried with Supabase). Then two real phones.
 10. **Reminders and notifications** (large).
 11. **Live co-editing** (large).
 
