@@ -34,7 +34,7 @@ Done since this was written: folders inside folders, and moving and dragging (0.
 6. **Show a folder on only one side** (small). Needs a database script.
 7. **Instant updates (Supabase Realtime)** (medium). Needs Supabase settings. Also look into the known issue: an open note sometimes doesn't update while being watched (seen in 0.7.2 testing).
 8. **"Invite someone" screen** (small). Needs a database script so the owner can add emails from the app. Worth doing when inviting more people.
-9. **Edit sharing with specific people** (large). Shared items appear in each person's own app, with offline editing.
+9. **Edit sharing with specific people** (large, in steps). Shared items, including whole folders, appear in each person's own app, with offline editing. Moved up by Oscar on Oct 31, 2026, to come next; design and build order in docs/sharing-design.md (created Oct 31, 2026).
 10. **Reminders and notifications** (large).
 11. **Live co-editing** (large).
 
