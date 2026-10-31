@@ -16,7 +16,7 @@ These come from Oscar's answers on Oct 31, 2026.
 - **The sharer is the owner.** The person who shared it can rename it and move it. The other person can ask to rename or move it, and the owner approves or declines (a later step; see "Build order").
 - **Moves follow along.** If the owner moves a shared item into one of their folders, the other person gets a folder of the same name holding just that item, plus a message the next time they open the app ("Oscar moved "Trip plans" into "Summer""). The rest of that folder isn't shared. When sharing a folder, the owner can choose to share the folder and all its contents instead.
 - **Deletes don't vanish.** If one person deletes a shared item, the other still sees it, marked "Deleted by Oscar". Opening it brings up a window: keep it or delete it. Keeping it makes it theirs alone, no longer shared.
-- **Knowing about clashes.** If the other person changed the note while you had it open, a message says so. Later, a "typing" indicator shows when the other person is in the same note right now.
+- **Knowing about clashes.** If the other person changed the note while you had it open, a message says so by name, such as "Oscar changed this while you had it open". Later, a "typing" indicator shows when they're in the same note right now ("Oscar is typing…"). Messages always use the person's name, or their email until they set one, never a generic "the other person".
 
 ## How it fits the app as it is
 

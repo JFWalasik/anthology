@@ -80,7 +80,7 @@ Read-only sharing is version 0.7 in the phase plan. After the MVP, the next cand
 | Task priorities | Tasks | Claude | Soon | Small |
 | Dark mode | Both | Claude | Soon | Small |
 | Edit sharing with specific people (shared items, including whole folders, appear in each person's own app, with offline editing; see docs/sharing-design.md) | Both | Oscar | Next | Large, in steps |
-| "The other person changed this" message, and a "typing" indicator (Supabase Realtime presence, free plan), for shared items | Both | Oscar | With sharing | Small, then medium |
+| A message naming who changed a shared item while you had it open ("Oscar changed this"; their email until they set a name), and a "typing" indicator (Supabase Realtime presence, free plan), for shared items | Both | Oscar | With sharing | Small, then medium |
 | "Save a copy to my Anthology" on a shared page | Both | Claude | Later | Small |
 | Formatting toolbar (rich text) | Notes | Oscar | Soon | Large |
 | Live co-editing | Both | Oscar | Later | Large |
