@@ -112,7 +112,8 @@ async function answer(item, notice) {
   if (notice.kind === 'left') {
     const person = personName(notice.share.person_id);
     const choice = await askChoice(
-      `${person} removed "${title}" from their Anthology, so it's no longer shared. It's still in yours. Keep it, or delete it?`,
+      `${person} removed "${title}" from their Anthology, so it's no longer shared with them. Your copy is still here, ` +
+      'unchanged. Keep it, or delete it?',
       [notNow, { label: 'Delete', value: 'delete', style: 'danger-button' }, { label: 'Keep it', value: 'keep', style: 'primary' }]);
     if (!choice) return;
     try {
@@ -132,8 +133,10 @@ async function answer(item, notice) {
   }
 
   const owner = personName(item.ownerId);
-  const what = notice.kind === 'deleted' ? `${owner} deleted "${title}".` : `${owner} stopped sharing "${title}" with you.`;
-  const choice = await askChoice(`${what} Keep a copy in your Anthology, or delete it?`,
+  const what = notice.kind === 'deleted'
+    ? `${owner} deleted "${title}" from their Anthology, so it's no longer shared with you.`
+    : `${owner} stopped sharing "${title}" with you.`;
+  const choice = await askChoice(`${what} You can keep a copy, as it is now, in your own Anthology, or delete it.`,
     [notNow, { label: 'Delete', value: 'delete', style: 'danger-button' }, { label: 'Keep a copy', value: 'keep', style: 'primary' }]);
   if (!choice) return;
   try {
