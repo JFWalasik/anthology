@@ -92,17 +92,25 @@ async function removeSharedIn(item) {
 
 // Asks the keep-or-delete question for an item with a notice (see
 // shareNotice). Only one question at a time.
-let answeringNotice = false;
+let answeringNotice = null; // { side, id } of the item being asked about
 
 async function answerNotice(item) {
   const notice = shareNotice(item);
   if (!notice || answeringNotice) return;
-  answeringNotice = true;
+  answeringNotice = { side: state.side, id: item.id };
   try {
     await answer(item, notice);
   } finally {
-    answeringNotice = false;
+    answeringNotice = null;
   }
+}
+
+// If the question was settled elsewhere while it was being asked (on another
+// device, or by the latest sync), close the window.
+function closeSettledNotice() {
+  if (!answeringNotice || !closeChoice) return;
+  const item = SIDES[answeringNotice.side].items().find(i => i.id === answeringNotice.id);
+  if (!item || !shareNotice(item, answeringNotice.side)) closeChoice();
 }
 
 async function answer(item, notice) {
@@ -226,6 +234,7 @@ async function shareWithPerson(event) {
     els.sharePersonEmail.value = '';
     renderSharePerson(`Shared. It will appear in ${result.name || result.email}'s Anthology the next time it syncs.`);
     renderSidebar();
+    renderMain();
   } catch (err) {
     console.error(err);
     // The database's own messages are written for people; anything else is a connection problem.

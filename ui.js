@@ -108,14 +108,18 @@ function askConfirm(message, yesLabel = 'Yes, delete') {
 // "Not now". choices: [{ label, value, style }], where style is a button
 // class. Resolves to the chosen value, or null if the window is closed.
 
+let closeChoice = null; // closes the open choice window as if cancelled
+
 function askChoice(message, choices) {
   els.choiceMessage.textContent = message;
   return new Promise(resolve => {
     const finish = value => {
+      closeChoice = null;
       els.choiceDialog.close();
       els.choiceDialog.removeEventListener('cancel', onCancel);
       resolve(value);
     };
+    closeChoice = () => finish(null);
     const onCancel = () => finish(null);
     els.choiceActions.replaceChildren(...choices.map(choice =>
       button(choice.style || 'quiet', choice.label, undefined, () => finish(choice.value))));

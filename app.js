@@ -535,6 +535,7 @@ async function applyRemoteChanges() {
     mainIsStale = true;
   }
   reportOthersChanges(before);
+  closeSettledNotice();
   checkOpenNotice();
 }
 
