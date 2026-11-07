@@ -16,6 +16,8 @@ This file gives guidance for working on the project. It's meant to be applied wi
 - docs/quickstart.md is Oscar's own refresher for restarting development after weeks or months away: how to start a session (desk or phone), and the Supabase and account steps he won't remember. Keep it short. Instructions for Claude belong here in CLAUDE.md, not in the quickstart.
 - Oscar's copy of the quickstart (a note in the app: Apps, then Anthology app) is the main copy, and he edits it himself. Whenever you're already signed in on the test copy for other work, compare it with docs/quickstart.md; if they differ, list the differences and ask Oscar before updating docs/quickstart.md to match. Never ask Oscar to sign in just for this, and don't let it hold up other work; if you're not signed in, it waits until a later time when you are. To suggest a change to the quickstart, propose the exact wording first; once okayed, change both copies (his is plain text: no bold or # headings, lists as "- " lines).
 - Before a session ends, write any decisions made into docs/roadmap.md or docs/plan.md, so the next session doesn't have to rediscover them.
+- Design discussions happen in the conversation. Please don't create design documents or other new files unless Oscar asks; once something is agreed, record the decision in docs/roadmap.md or docs/plan.md.
+- Present plans and open questions in the chat, not in a file to read.
 
 ## How the app is built
 
@@ -35,6 +37,7 @@ This file gives guidance for working on the project. It's meant to be applied wi
 - Send work to GitHub (push) at the end of each session, so phone sessions and the laptop stay in step.
 - Please avoid anything that rewrites or discards history, such as force pushes or hard resets, and don't delete files without asking first.
 - Keep the main version in working order, since the live app is published from it.
+- Documents in docs/ carry a version number in the file name (for example docs/plan-v0.23.md), so Oscar can see the history and the newest version in the folder itself, without git. To change one, save a new copy with the next number and leave the earlier ones as they are. The highest number is the current version; a mention of a doc without a number (docs/plan.md) means its newest version. The plan's number is its plan version; the other docs count up from v1 (numbered from Oct 31, 2026). The app's own files (code, index.html, sw.js, the supabase scripts) and README.md and CLAUDE.md keep their names, since the app, GitHub and Claude Code find them by name; their history is in the app version, the changelogs and GitHub.
 
 ## At the start of each session
 
