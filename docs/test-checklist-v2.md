@@ -1,0 +1,64 @@
+# Test checklist
+
+Written Oct 23, 2026, at version 0.10, from the app as it actually behaves, before app.js was split into smaller files (1.1). Use it for any change that touches many features at once, and add to it as features are added.
+
+Testing happens on the test copy (`http://localhost:8765`, the "anthology" entry in `.claude/launch.json`), signed in, in Claude's Browser pane. Only items titled "TEST…" are created, changed or deleted.
+
+## 1. The smoke test (automatic)
+
+`tests/smoke-test.js` clicks and types through the app the way a person would and reports each check as "ok" or "FAIL". It removes everything it made at the end. It runs only on localhost. To run it, ask Claude, or type this in the browser's console on the test copy:
+
+```
+await import('./tests/smoke-test.js?' + Date.now()); await smokeTest();
+```
+
+What it covers:
+
+- **Notes:** new note, title and body, "Saved", Enter from title to body, Up arrow and Backspace back to the title, empty notes discarded, "#" heading marks left out of titles
+- **Folders:** new folder (opens, becomes where new things go), the "New … go into" line, "No notes yet", folder count, new folder inside, rename (Enter keeps, Escape cancels), open and close
+- **Moving:** the Move to… window (heading, "(here now)", indented nesting), moving into a nested folder, the date unchanged, a folder can't go inside itself, the folder menu above an open note, dragging onto a folder and onto empty sidebar space
+- **Pinning:** hover Pin, ⋯ menu Pin for folders, the bar's Pin/Unpin, the order (pinned folders, pinned items, folders, items), the date unchanged
+- **Search:** note text, titles, tasks on the other side, highlighting, folder paths in results, "No matches.", Escape, ×, opening a result
+- **Tasks:** new list, Enter to "Add a task", adding several, Enter in a task adds one below, Backspace in an empty task removes it, up and down arrows, ⋯ menu, ticking off, Completed (count, Hide and Show), delete and Undo, an emptied task removed on leaving it, delete list window (Cancel), each side remembering its open item
+- **Recently deleted:** delete window wording, the count, details ("Note · deleted … · 30 days left"), Restore, "Delete now", Empty (opened and cancelled only), deleting and restoring a folder with a folder and note inside
+- **Settings and Shared links:** open, back, the version number
+- **Sharing:** view link, edit link, the explanations, Make a new link (the old one stops working), Turn off link (in the panel and on the Shared links page), the shared page itself (view: read-only with its footer; edit: editable, saves, and the change reaches the owner)
+- **Export and restore:** the file name, Markdown files in folder paths, the task list, the backup file; erasing a note for good (and the blank erased row it leaves in the database) and getting it back with "Add what's missing"; the restore window cancelled. No file is saved and the real "last export" date isn't changed
+- **Export reminder:** shows when due (with made-up dates), Not now hides it
+- **Erasing on other devices** (from 1.1.1): a note erased on "another device" (written straight to the database) disappears here, from notes and Recently deleted
+- **Deleted things coming back** (from 1.1.2): a TEST note deleted here (once still in Recently deleted, once after Delete now) is changed on "another device"; it comes back, the message names it, has OK rather than Undo, and OK closes it
+- **Access screen:** shown, starts with the email form, plain error messages. Nothing is sent
+- **Clean-up:** every TEST item is gone here, and erased in the database, so other devices remove it too
+
+## 1b. Sharing with someone in Anthology (automatic, from 1.2)
+
+`tests/share-test.js` (created Nov 7, 2026) checks sharing between two accounts at once, using two test accounts so no real notes are touched: anthologyaccess+test (shares) and anthologyaccess+test2 (receives), both in allowed_emails. It runs outside the browser, with Node and Playwright; the file's opening comment says how. Each account signs in once, with a code from the anthologyaccess@gmail.com inbox. Its clean-up ends every share between the test accounts and erases every TEST item.
+
+What it covers: names; sharing a note and a task list, and refusing your own email or one with no account; the Share panel and the bar for both people; edits both ways and the "changed while you had it open" message; the other person's own pin; no moving for them, and the owner's moves not affecting them; an offline edit syncing later; tasks added and ticked by the other person; the owner deleting (window explains why; keep a copy keeps everything), stopping sharing (then delete), and the other person removing (owner keeps it); the other person's backup leaving out shared things.
+
+## 2. By hand
+
+- **Dragging a task** by its ⋮⋮ handle with the mouse, to a new place in the list
+- **Phone layout** (Browser pane set to Mobile, then reload): opens on the open item with ‹ Back; ⋯ on tasks opens a menu under it (Move up, Move down, Delete); the list screen shows ⋯ on folders and items (Pin, Move to…, Delete); Settings and help opens full screen and ‹ Back returns; opening an item and both the app's ‹ Back and the browser's back return to the list
+- **Console:** no errors after all of the above
+- **Look:** a quick screenshot of the computer and phone layouts, compared with the previous version
+
+## 3. Not tested here
+
+- Signing out and signing in (needs an access code), and sending codes
+- "Replace everything" in a restore (it would replace real data)
+- Emptying Recently deleted for real
+- A real phone, a real trackpad, and Chrome's own Save window for exports
+- Two separate devices; the edit-link test and the erase test above cover changes arriving from elsewhere. Before 1.1.1, the smoke test's TEST items stayed on any other device that had the app open
+
+## Known quirks (as of 0.10)
+
+- Closing a folder resets where new things go only if that folder itself was the target. If a folder inside it was the target, new things still go into that now-hidden inner folder; the line under the search box says so.
+
+## Results
+
+- **0.10, before the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: all fine, no console errors.
+- **1.1, after the split (Oct 23, 2026):** smoke test 141 ok, 0 failed. By hand: the same results as 0.10 at every step, no console errors. All 21 files in sw.js's list load.
+- **1.1.1 (Oct 24, 2026):** smoke test 147 ok, 0 failed, twice. One refused request (400) appeared once in the console and couldn't be reproduced.
+- **1.2 (Nov 7, 2026):** share test 42 ok, 0 failed, three times (two found and fixed: the bar not saying "Shared with…" straight after sharing, and a keep-or-delete window staying open after the question was settled elsewhere). Smoke test 152 ok; the one FAIL and 5 skipped dragging checks are because the browser used had no mouse ("this browser counts as a computer for dragging"), not the app. Not tested: real phones, two people typing in the same note at once.
+- **1.1.2 (Oct 24, 2026):** smoke test 157 ok, 0 failed, three times; the third run recorded every request, from the page and the shared-link frames, and none was refused. The console's one "400" is most likely the same old entry, which the Browser pane keeps across reloads. The message checked by eye at phone width.

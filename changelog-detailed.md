@@ -1,5 +1,31 @@
 # Changelog (detailed)
 
+## 1.2 (Nov 7, 2026)
+
+Added
+- Sharing with someone in Anthology: Share, then "With someone in Anthology", then their email. The note or task list appears in their Anthology too, at the top level, with a small 👥 mark; both people can change it, offline included, and changes sync as usual. One other person per item for now
+- The owner keeps it in their folders and is the only one who can move it or share it further. The other person can pin it for themselves only. A task they add to a shared list is theirs, and both people can change it
+- The bar above a shared item says "Shared with …" or "Shared by …". Delete reads Remove for something shared with you: it takes it out of your Anthology only, and the owner is told
+- If the owner deletes it or stops sharing, the other person sees "Deleted by …" or "… stopped sharing", and opening it asks, saying why, whether to keep a copy (theirs alone, at the top level, with everything in it) or delete it. If the other person removes it, the owner sees "Removed by …" and is asked whether to keep it or delete it. Not now asks again next time
+- A message when the other person changes the note or task list you have open: "Sam changed "Trip plans" while you had it open"
+- Your name, under Account in Settings and help, shown to people you share with; until it's set they see your email
+- supabase/006_share_with_people.sql (run Nov 7, 2026): people and shares tables, a changed_by column, access rules for shared items, and protections in the database itself (only the owner can move, pin, delete or erase a shared item; only owners remove rows)
+- tests/share-test.js: the sharing test, with two test accounts
+
+Changed
+- Backups (the file used for restore) hold only your own things, so restoring can't copy things shared with you; the Markdown files in an export include them
+- Help: "Sharing with someone in Anthology", and "Sharing by link"
+
+Why
+- To work on the same notes and lists together, including while out with a poor connection (plan 0.24)
+
+Notes for later
+- Sharing, stopping sharing, removing and keep-or-delete need a connection; editing doesn't (agreed). Making them wait offline is possible later
+- Either person can change a note's title (its first line) until the ask-the-owner step (1.4)
+- If both people change the same note at the same moment, the later save wins for the whole note, as between your own devices; the message makes it visible. Task lists are safer, since each task saves on its own
+- A refused share shows its reason; the database reports "No one with that email…" as a 500 in the browser's console, which is harmless
+- Tested: share test 42 of 42, three times; smoke test 152 ok (dragging skipped, no mouse in the test browser). Not tried on real phones
+
 ## 1.1.2 (Oct 24, 2026)
 
 Added

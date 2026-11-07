@@ -1,5 +1,8 @@
 # Changelog (summary)
 
+## 1.2 (Nov 7, 2026)
+Share a note or task list with someone else in Anthology: it appears in both your apps, and you can both change it, even offline. Set your name in Settings and help so they see it.
+
 ## 1.1.2 (Oct 24, 2026)
 A message says so when something you deleted comes back because it was changed or restored on another device.
 
