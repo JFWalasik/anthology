@@ -89,6 +89,7 @@
           <button type="button" class="quiet back-button" id="back-button">‹ Back</button>
           <span class="item-location">
             <select id="item-folder" aria-label="Folder"></select>
+            <span class="item-shared" id="item-shared" hidden></span>
           </span>
           <span class="save-status" id="save-status" aria-live="polite"></span>
           <button type="button" class="quiet" id="pin-item">Pin</button>
@@ -140,6 +141,13 @@
           <section class="page-section">
             <h3>Account</h3>
             <p>Signed in as <span id="account-email"></span>.</p>
+            <form class="name-row" id="name-form">
+              <label for="my-name">Your name</label>
+              <input type="text" id="my-name" maxlength="60" autocomplete="name"
+                placeholder="Shown to people you share with">
+              <button type="submit" class="link">Save</button>
+            </form>
+            <p class="share-message" id="name-message" aria-live="polite"></p>
             <p><button type="button" class="link" id="sign-out">Sign out</button></p>
           </section>
 
@@ -195,7 +203,14 @@
             <p>Export everything (above) saves a ZIP file you can keep anywhere. Every six months or so, a reminder
               suggests making one. Restoring can add only what's missing, so an old backup never overwrites newer
               work.</p>
-            <h4>Sharing</h4>
+            <h4>Sharing with someone in Anthology</h4>
+            <p>Open a note or task list, choose Share, and enter the email of someone who uses Anthology. It appears
+              in their Anthology too, marked as shared, and you can both change it, even offline; changes sync when
+              there's a connection. Only you can move it or share it further. If one of you deletes it, the other is
+              asked whether to keep a copy. If you both change it at the same moment, the later change wins, so a
+              message says when the other person changed something you have open. Set your name above so they see
+              it instead of your email.</p>
+            <h4>Sharing by link</h4>
             <p>Open a note or task list and choose Share to get a link. Choose Can view or Can edit. Anyone with
               the link can see it without signing in, and sees your changes as you make them; with an edit link they
               can change it too. Turn links off under Shared links.</p>
@@ -236,18 +251,35 @@
 
   <dialog class="share-dialog" id="share-dialog">
     <h2 id="share-heading">Share</h2>
-    <div class="share-choice" role="radiogroup" aria-label="What people with the link can do">
-      <label><input type="radio" name="share-mode" value="view" checked> Can view</label>
-      <label><input type="radio" name="share-mode" value="edit"> Can edit</label>
-    </div>
-    <p id="share-explain"></p>
-    <input type="text" id="share-url" readonly aria-label="Link">
-    <div class="share-actions">
-      <button type="button" class="primary" id="share-send">Copy link</button>
-      <button type="button" class="link" id="share-new">Make a new link</button>
-      <button type="button" class="link danger" id="share-off">Turn off link</button>
-    </div>
-    <p class="share-message" id="share-message" aria-live="polite"></p>
+    <section class="share-person" id="share-person">
+      <h3>With someone in Anthology</h3>
+      <p id="share-person-explain"></p>
+      <form class="share-person-form" id="share-person-form">
+        <input type="email" id="share-person-email" placeholder="Their email" autocomplete="off"
+          aria-label="Their email">
+        <button type="submit" class="primary" id="share-person-send">Share</button>
+      </form>
+      <p class="share-person-with" id="share-person-with" hidden>
+        <span id="share-person-name"></span>
+        <button type="button" class="link danger" id="share-person-stop">Stop sharing</button>
+      </p>
+      <p class="share-message" id="share-person-message" aria-live="polite"></p>
+    </section>
+    <section class="share-by-link" id="share-by-link">
+      <h3>By link</h3>
+      <div class="share-choice" role="radiogroup" aria-label="What people with the link can do">
+        <label><input type="radio" name="share-mode" value="view" checked> Can view</label>
+        <label><input type="radio" name="share-mode" value="edit"> Can edit</label>
+      </div>
+      <p id="share-explain"></p>
+      <input type="text" id="share-url" readonly aria-label="Link">
+      <div class="share-actions">
+        <button type="button" class="primary" id="share-send">Copy link</button>
+        <button type="button" class="link" id="share-new">Make a new link</button>
+        <button type="button" class="link danger" id="share-off">Turn off link</button>
+      </div>
+      <p class="share-message" id="share-message" aria-live="polite"></p>
+    </section>
     <p class="share-close"><button type="button" class="quiet" id="share-close">Done</button></p>
   </dialog>
 
@@ -277,6 +309,11 @@
       <button type="button" class="quiet" id="confirm-no">Cancel</button>
       <button type="button" class="danger-button" id="confirm-yes">Yes, delete</button>
     </div>
+  </dialog>
+
+  <dialog class="share-dialog choice-dialog" id="choice-dialog">
+    <p id="choice-message"></p>
+    <div class="choice-actions" id="choice-actions"></div>
   </dialog>
 
   <div class="menu" id="menu" role="menu" hidden></div>

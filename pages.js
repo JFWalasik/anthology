@@ -17,6 +17,30 @@ async function openPage(page) {
   state.page = page;
   render();
   if (page === 'links') loadLinks();
+  if (page === 'settings') showMyName();
+}
+
+// ---- Your name (from 1.2) ----
+// Shown to people you share with. Until it's set, they see your email.
+
+function showMyName() {
+  const me = state.people.find(p => p.id === Storage.userId());
+  els.myName.value = me ? me.name : '';
+  els.nameMessage.textContent = '';
+}
+
+async function saveMyName(event) {
+  event.preventDefault();
+  const name = els.myName.value.trim();
+  els.nameMessage.textContent = 'Saving…';
+  try {
+    await Storage.saveMyName(name);
+    Object.assign(state, await Storage.loadAll());
+    els.nameMessage.textContent = name ? 'Saved.' : 'Saved. People you share with will see your email.';
+  } catch (err) {
+    console.error(err);
+    els.nameMessage.textContent = NEEDS_CONNECTION;
+  }
 }
 
 const openTrash = () => openPage('trash');
@@ -96,6 +120,7 @@ function wirePageEvents() {
   els.trashLink.addEventListener('click', openTrash);
   els.settingsLink.addEventListener('click', () => openPage('settings'));
   byId('open-links').addEventListener('click', () => openPage('links'));
+  els.nameForm.addEventListener('submit', saveMyName);
   byId('links-back').addEventListener('click', () => openPage('settings'));
   for (const back of document.querySelectorAll('.page-back')) back.addEventListener('click', goBack);
 }

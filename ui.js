@@ -103,7 +103,26 @@ function askConfirm(message, yesLabel = 'Yes, delete') {
   });
 }
 
-// ---- Buttons and keys ----
+// ---- A window with several choices ----
+// For questions with more than yes or no, such as "Keep a copy", "Delete" or
+// "Not now". choices: [{ label, value, style }], where style is a button
+// class. Resolves to the chosen value, or null if the window is closed.
+
+function askChoice(message, choices) {
+  els.choiceMessage.textContent = message;
+  return new Promise(resolve => {
+    const finish = value => {
+      els.choiceDialog.close();
+      els.choiceDialog.removeEventListener('cancel', onCancel);
+      resolve(value);
+    };
+    const onCancel = () => finish(null);
+    els.choiceActions.replaceChildren(...choices.map(choice =>
+      button(choice.style || 'quiet', choice.label, undefined, () => finish(choice.value))));
+    els.choiceDialog.addEventListener('cancel', onCancel);
+    els.choiceDialog.showModal();
+  });
+}
 
 // ---- Message bar ----
 // The bar at the bottom that also shows "Task deleted · Undo". A message stays
@@ -117,6 +136,8 @@ function showMessage(text) {
   els.toastOk.hidden = false;
   els.toast.hidden = false;
 }
+
+// ---- Buttons and keys ----
 
 function wireUiEvents() {
   const byId = id => document.getElementById(id);

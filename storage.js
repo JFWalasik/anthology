@@ -20,6 +20,10 @@
 // - notes: { id, folderId, body, createdAt, updatedAt }
 // - task lists: { id, folderId, title, showCompleted, createdAt, updatedAt }
 // - tasks: { id, listId, text, done, position, createdAt, completedAt, updatedAt }
+// From 1.2, records read from the database also carry ownerId (whose it is)
+// and changedBy (who made the latest change, if known). A note or task list
+// someone shared with you has their ownerId; ownerDeleted marks one its owner
+// has deleted, kept here until you choose to keep a copy or delete it.
 
 const Storage = (() => {
   const OLD_DATA_KEY = 'anthology.data';          // notes saved on this device before 0.5
@@ -53,14 +57,18 @@ const Storage = (() => {
   };
   const fromRow = {
     folders: r => ({ id: r.id, name: r.name, parentId: r.parent_id, pinned: Boolean(r.pinned), createdAt: r.created_at, updatedAt: r.updated_at }),
-    notes: r => ({ id: r.id, folderId: r.folder_id, body: r.body, pinned: Boolean(r.pinned), createdAt: r.created_at, updatedAt: r.updated_at }),
+    notes: r => ({
+      id: r.id, folderId: r.folder_id, body: r.body, pinned: Boolean(r.pinned), createdAt: r.created_at, updatedAt: r.updated_at,
+      ownerId: r.user_id, changedBy: r.changed_by ?? null,
+    }),
     taskLists: r => ({
       id: r.id, folderId: r.folder_id, title: r.title, showCompleted: r.show_completed, pinned: Boolean(r.pinned),
-      createdAt: r.created_at, updatedAt: r.updated_at,
+      createdAt: r.created_at, updatedAt: r.updated_at, ownerId: r.user_id, changedBy: r.changed_by ?? null,
     }),
     tasks: r => ({
       id: r.id, listId: r.list_id, text: r.text, done: r.done, position: r.position,
       createdAt: r.created_at, completedAt: r.completed_at, updatedAt: r.updated_at,
+      ownerId: r.user_id, changedBy: r.changed_by ?? null,
     }),
   };
 
@@ -119,8 +127,10 @@ const Storage = (() => {
   // trash holds recently deleted records: { kind, record, deletedAt }.
   // erasedHere lists what this device erased for good, { kind, id, at }, kept
   // for 30 days so it can say so if another device brings one back.
+  // shares and people are copies of the database's lists (from 1.2), kept so
+  // shared items still show who shared them while offline.
   function emptyData() {
-    return { folders: [], notes: [], taskLists: [], tasks: [], trash: [], erasedHere: [], pulledAt: {} };
+    return { folders: [], notes: [], taskLists: [], tasks: [], trash: [], erasedHere: [], pulledAt: {}, shares: [], people: [] };
   }
 
   function readLocal() {
@@ -129,6 +139,8 @@ const Storage = (() => {
     data.trash = data.trash || [];
     data.erasedHere = data.erasedHere || [];
     data.pulledAt = data.pulledAt || {};
+    data.shares = data.shares || [];
+    data.people = data.people || [];
     return data;
   }
 
@@ -302,10 +314,13 @@ const Storage = (() => {
         const result = await withTimeout((async () => {
           const { data } = await client.auth.getSession();
           if (!data.session) return null;
+          // Shares first, so changes to things no longer shared with this
+          // person can be left out of what's sent.
+          const sharesChanged = await pullShares();
           await push();
           const { changed, cameBack } = await pull();
           const expired = await eraseExpired();
-          return { changed, cameBack, expired };
+          return { changed: changed || sharesChanged, cameBack, expired };
         })(), SYNC_TIMEOUT_MS);
         if (!result) {
           setStatus('offline');
@@ -331,6 +346,7 @@ const Storage = (() => {
   // Sends waiting changes, then removes them from the outbox unless they were
   // changed again while being sent.
   async function push() {
+    dropUnreachable();
     const entries = Object.entries(readOutbox());
     for (const kind of KINDS) {
       const ofKind = entries.filter(([, entry]) => entry.kind === kind);
@@ -390,6 +406,16 @@ const Storage = (() => {
         const index = data[kind].findIndex(r => r.id === row.id);
         const inTrash = data.trash.findIndex(e => e.kind === kind && e.record.id === row.id);
         const record = fromRow[kind](row);
+        if ((kind === 'notes' || kind === 'taskLists') && row.user_id !== user.id) {
+          if (applySharedIn(data, kind, row, record, index)) changed = true;
+          continue;
+        }
+        if (kind === 'tasks' && (row.deleted || row.erased)) {
+          // Tasks in a shared list its owner deleted stay with the list, so
+          // keeping a copy keeps them too.
+          const list = data.taskLists.find(l => l.id === row.list_id);
+          if (list && list.ownerDeleted) continue;
+        }
         if (row.erased) {
           // Erased for good on another device: remove it here too, including
           // from Recently deleted.
@@ -436,11 +462,45 @@ const Storage = (() => {
     return { changed, cameBack };
   }
 
+  // A note or task list someone shared with this person. It sits at the top
+  // level here (its owner's folders aren't shared), with this person's own
+  // pin. If the owner deletes it, it stays here, marked, until this person
+  // keeps a copy or deletes it. Returns whether anything changed.
+  function applySharedIn(data, kind, row, record, index) {
+    const share = activeShare(data, kind, row.id);
+    record.folderId = null;
+    record.pinned = Boolean(share && share.person_pinned);
+    if (row.deleted || row.erased) {
+      if (index === -1) {
+        if (row.erased) return false;
+        record.ownerDeleted = true;
+        data[kind].push(record);
+        return true;
+      }
+      if (data[kind][index].ownerDeleted) return false;
+      data[kind][index] = { ...data[kind][index], ownerDeleted: true };
+      return true;
+    }
+    if (index === -1) {
+      data[kind].push(record);
+      return true;
+    }
+    const current = data[kind][index];
+    if (current.updatedAt <= record.updatedAt && JSON.stringify(current) !== JSON.stringify(record)) {
+      data[kind][index] = record;
+      return true;
+    }
+    return false;
+  }
+
   // ---- Reading and saving, used by the rest of the app ----
 
   async function loadAll() {
     const data = readLocal();
-    return { folders: data.folders, notes: data.notes, taskLists: data.taskLists, tasks: data.tasks };
+    return {
+      folders: data.folders, notes: data.notes, taskLists: data.taskLists, tasks: data.tasks,
+      shares: data.shares, people: data.people,
+    };
   }
 
   async function saveNote(note) {
@@ -516,7 +576,9 @@ const Storage = (() => {
     removeAndQueue((data, changes, how) => {
       for (const kind of KINDS) {
         const keep = new Set(incoming[kind].map(r => r.id));
-        remove(data, kind, data[kind].filter(r => !keep.has(r.id)).map(r => r.id), changes, how);
+        // Things shared with this person aren't in their backups, and stay.
+        const theirs = r => !keep.has(r.id) && !isOthers(data, kind, r);
+        remove(data, kind, data[kind].filter(theirs).map(r => r.id), changes, how);
       }
     });
     const now = Date.now();
@@ -796,6 +858,162 @@ const Storage = (() => {
     callShared('save_shared_task', { share_token: token, task_id: id, task_text: text, task_done: done });
   const deleteSharedTask = (token, id) => callShared('delete_shared_task', { share_token: token, task_id: id });
 
+  // ---- Sharing with people (from 1.2) ----
+  // A note or task list shared with a specific Anthology account appears in
+  // both people's apps and syncs like everything else. The owner keeps it in
+  // their folders; the other person has it at the top level. Sharing, ending
+  // a share and setting your name talk to the database directly, so they need
+  // a connection.
+
+  const SHARE_KIND = { notes: 'note', taskLists: 'task_list' };
+  const KIND_OF = { note: 'notes', task_list: 'taskLists' };
+
+  function activeShare(data, kind, id) {
+    return data.shares.find(s => s.active && s.item_kind === SHARE_KIND[kind] && s.item_id === id) || null;
+  }
+
+  // Is this someone else's note or task list (or a task in someone else's list)?
+  function isOthers(data, kind, record) {
+    if (!user) return false;
+    if (kind === 'tasks') {
+      const list = data.taskLists.find(l => l.id === record.listId);
+      return Boolean(list && list.ownerId && list.ownerId !== user.id);
+    }
+    if (kind === 'folders') return false;
+    return Boolean(record.ownerId && record.ownerId !== user.id);
+  }
+
+  // Fetches the shares this person is part of, and the people in them.
+  async function pullShares() {
+    const [shares, people] = await Promise.all([
+      client.from('shares').select('*'),
+      client.from('people').select('*'),
+    ]);
+    if (shares.error) throw shares.error;
+    if (people.error) throw people.error;
+    const data = readLocal();
+    const changed = JSON.stringify(data.shares) !== JSON.stringify(shares.data)
+      || JSON.stringify(data.people) !== JSON.stringify(people.data);
+    if (!changed) return false;
+    data.shares = shares.data;
+    data.people = people.data;
+    // Someone else's pins come from the share, not the item.
+    for (const kind of ['notes', 'taskLists']) {
+      for (const record of data[kind]) {
+        if (!isOthers(data, kind, record)) continue;
+        const share = activeShare(data, kind, record.id);
+        if (share) record.pinned = Boolean(share.person_pinned);
+      }
+    }
+    writeLocal(data);
+    return true;
+  }
+
+  // Leaves out waiting changes to things that are no longer shared with this
+  // person; the database would refuse them, which would stop syncing.
+  function dropUnreachable() {
+    const data = readLocal();
+    const outbox = readOutbox();
+    let dropped = false;
+    for (const [key, entry] of Object.entries(outbox)) {
+      let kind = entry.kind;
+      let id = entry.row.id;
+      if (kind === 'tasks') {
+        const list = data.taskLists.find(l => l.id === entry.row.list_id);
+        if (!list) continue;
+        kind = 'taskLists';
+        id = list.id;
+      }
+      if (kind !== 'notes' && kind !== 'taskLists') continue;
+      const record = data[kind].find(r => r.id === id);
+      if (!record || !isOthers(data, kind, record)) continue;
+      if (activeShare(data, kind, id) && !(entry.kind !== 'tasks' && (entry.row.deleted || entry.row.erased))) continue;
+      delete outbox[key];
+      dropped = true;
+    }
+    if (dropped) writeOutbox(outbox);
+  }
+
+  async function rpc(name, args) {
+    const { data, error } = await client.rpc(name, args);
+    if (error) throw error;
+    return data;
+  }
+
+  // Shares one of this person's notes or task lists with the account using
+  // this email. Throws with the database's plain-language message if it can't.
+  async function shareWithPerson(kind, id, email) {
+    await sync(); // the item has to be in the database first
+    const result = await rpc('share_with_person', { person_email: email, kind: SHARE_KIND[kind], item: id });
+    await pullShares();
+    return result;
+  }
+
+  // Ends a share. reason: 'left' when the other person removes something
+  // still shared, 'closed' once they've answered the keep-or-delete question.
+  async function endShare(shareId, reason = 'left') {
+    await rpc('end_share', { share: shareId, reason });
+    await pullShares();
+  }
+
+  async function markShareSeen(shareId) {
+    await rpc('mark_share_seen', { share: shareId });
+    await pullShares();
+  }
+
+  // Pins or unpins something shared with this person, for them only.
+  async function pinShared(kind, id, pin) {
+    const data = readLocal();
+    const share = activeShare(data, kind, id);
+    if (!share) return;
+    await rpc('pin_shared', { share: share.id, pin });
+    await pullShares();
+  }
+
+  async function saveMyName(name) {
+    await rpc('save_my_name', { new_name: name });
+    await pullShares();
+  }
+
+  // Removes someone else's note or task list from this device only, with its
+  // tasks and any changes waiting to be sent. The owner's copy isn't touched.
+  function forgetShared(kind, id) {
+    const data = readLocal();
+    data[kind] = data[kind].filter(r => r.id !== id);
+    const taskIds = new Set();
+    if (kind === 'taskLists') {
+      for (const t of data.tasks) if (t.listId === id) taskIds.add(t.id);
+      data.tasks = data.tasks.filter(t => t.listId !== id);
+    }
+    writeLocal(data);
+    const outbox = readOutbox();
+    delete outbox[`${kind}:${id}`];
+    for (const taskId of taskIds) delete outbox[`tasks:${taskId}`];
+    writeOutbox(outbox);
+  }
+
+  // Makes this person's own copy of someone else's note or task list (new
+  // IDs, at the top level), then removes the shared one from this device.
+  // Returns the copy's ID.
+  function keepCopy(kind, id) {
+    const data = readLocal();
+    const original = data[kind].find(r => r.id === id);
+    if (!original) return null;
+    const now = Date.now();
+    const copyId = crypto.randomUUID ? crypto.randomUUID() : `${now.toString(36)}${Math.random().toString(36).slice(2)}`;
+    const { ownerId, changedBy, ownerDeleted, ...fields } = original;
+    const copy = { ...fields, id: copyId, folderId: null, pinned: false, updatedAt: now };
+    const tasks = kind === 'taskLists'
+      ? data.tasks.filter(t => t.listId === id).map(({ ownerId: o, changedBy: c, ...t }) => ({
+        ...t, id: crypto.randomUUID ? crypto.randomUUID() : `${t.id}-copy`, listId: copyId, updatedAt: now,
+      }))
+      : [];
+    forgetShared(kind, id);
+    put(kind, [copy]);
+    if (tasks.length) put('tasks', tasks);
+    return copyId;
+  }
+
   // ---- Notes saved on this device before 0.5 ----
 
   // Returns counts if this device has notes from before sign-in that haven't
@@ -828,15 +1046,21 @@ const Storage = (() => {
 
   // ---- Backups ----
 
+  // A backup holds only this person's own things, so restoring it can't make
+  // copies of things others shared with them. (The Markdown files in an
+  // export include everything.)
   function makeBackup(data) {
+    const own = user ? (r => !r.ownerId || r.ownerId === user.id) : (() => true);
+    const lists = data.taskLists.filter(own);
+    const listIds = new Set(lists.map(l => l.id));
     return JSON.stringify({
       format: BACKUP_FORMAT,
       backupVersion: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
       folders: data.folders,
-      notes: data.notes,
-      taskLists: data.taskLists,
-      tasks: data.tasks,
+      notes: data.notes.filter(own),
+      taskLists: lists,
+      tasks: data.tasks.filter(t => listIds.has(t.listId)),
     }, null, 2);
   }
 
@@ -931,7 +1155,7 @@ const Storage = (() => {
   }
 
   return {
-    version: '1.1.2', // must match APP_VERSION in app.js
+    version: '1.2', // must match APP_VERSION in app.js
     connect, restoreUser, sendCode, verifyCode, signOut, openUser,
     sync, hasUnsynced, getStatus: () => status,
     onChange: fn => listeners.change.push(fn),
@@ -946,5 +1170,7 @@ const Storage = (() => {
     saveSharedNote, saveSharedListTitle, addSharedTask, saveSharedTask, deleteSharedTask,
     oldDeviceData, addOldDeviceData, leaveOutOldDeviceData,
     makeBackup, parseBackup, loadPrefs, savePrefs,
+    userId: () => (user ? user.id : null), kindOf: shareKind => KIND_OF[shareKind],
+    shareWithPerson, endShare, markShareSeen, pinShared, saveMyName, forgetShared, keepCopy,
   };
 })();

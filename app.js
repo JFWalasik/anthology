@@ -9,7 +9,7 @@
 // Text people type is only ever put on the page as plain text (textContent or
 // input values), never as HTML, so nothing typed can run as code.
 
-const APP_VERSION = '1.1.2'; // must match the version in storage.js
+const APP_VERSION = '1.2'; // must match the version in storage.js
 const SAVE_DELAY_MS = 500;
 const CAN_RESTORE = 'You can restore it from Recently deleted for 30 days.';
 const NEW_FOLDER = 'new';
@@ -51,6 +51,8 @@ const state = {
   notes: [],
   taskLists: [],
   tasks: [],
+  shares: [],               // sharing with people (sharing.js)
+  people: [],               // the people in those shares, with their names
   side: 'notes',
   views: { notes: newView(), tasks: newView() },
   editingFolderId: null,    // folder whose name is being typed, or NEW_FOLDER
@@ -277,7 +279,7 @@ async function leaveCurrentItem() {
   if (state.side === 'tasks') {
     for (const task of tasksIn(item.id).filter(t => t.text.trim() === '')) await removeTaskQuietly(task);
   }
-  if (isEmptyItem(item)) await removeItem(item, true);
+  if (isEmptyItem(item) && !isSharedIn(item)) await removeItem(item, true);
 }
 
 // ---- Phone screens and the back gesture ----
@@ -323,7 +325,10 @@ async function goBack() {
 }
 
 async function openItem(id) {
-  if (id === view().currentId && !state.page) return;
+  if (id === view().currentId && !state.page) {
+    checkOpenNotice();
+    return;
+  }
   await leaveCurrentItem();
   state.page = null;
   view().currentId = id;
@@ -332,6 +337,7 @@ async function openItem(id) {
   setStatus('');
   savePrefs();
   render();
+  checkOpenNotice();
 }
 
 async function createItem() {
@@ -355,6 +361,10 @@ async function createItem() {
 
 async function deleteItem(item) {
   if (!item) return;
+  if (isSharedIn(item)) {
+    await removeSharedIn(item);
+    return;
+  }
   const empty = isEmptyItem(item);
   if (!empty) {
     let message;
@@ -365,7 +375,9 @@ async function deleteItem(item) {
       const contents = count === 0 ? '' : ` and its ${plural(count, 'task', 'tasks')}`;
       message = `Are you sure you want to delete the task list "${side().title(item)}"${contents}?`;
     }
-    if (!await askConfirm(`${message} ${CAN_RESTORE}`)) return;
+    const share = shareOf(item);
+    const asked = share && share.active ? ` ${personName(share.person_id)} will be asked whether to keep a copy.` : '';
+    if (!await askConfirm(`${message} ${CAN_RESTORE}${asked}`)) return;
   }
   if (item.id === view().currentId) view().currentId = null;
   await removeItem(item, empty);
@@ -418,8 +430,15 @@ function renderMain() {
   if (!item) return;
 
   els.titleInput.placeholder = side().titlePlaceholder;
-  els.deleteItem.textContent = side().deleteLabel;
+  const sharedIn = isSharedIn(item);
+  const share = shareOf(item);
+  els.deleteItem.textContent = sharedIn ? 'Remove' : side().deleteLabel;
   els.pinItem.textContent = item.pinned ? 'Unpin' : 'Pin';
+  // Something shared with you stays where its owner put it, so it has no folder choice here.
+  els.itemFolder.hidden = sharedIn;
+  els.itemShared.hidden = !sharedIn && !share?.active;
+  els.itemShared.textContent = sharedIn ? `Shared by ${personName(item.ownerId)}`
+    : share?.active ? `Shared with ${personName(share.person_id)}` : '';
   const options = [new Option('Top level', '')];
   const addOptions = (parentId, depth) => {
     for (const folder of childFolders(parentId)) {
@@ -483,6 +502,7 @@ let lastTypedAt = 0;
 const TYPING_PAUSE_MS = 3000;
 
 async function applyRemoteChanges() {
+  const before = openSnapshot();
   const data = await Storage.loadAll();
   const keep = (fresh, current, prefix) => {
     const pending = current.filter(record => pendingSaves.has(`${prefix}:${record.id}`));
@@ -492,6 +512,9 @@ async function applyRemoteChanges() {
   state.notes = keep(data.notes, state.notes, 'item');
   state.taskLists = keep(data.taskLists, state.taskLists, 'item');
   state.tasks = keep(data.tasks, state.tasks, 'task');
+  state.shares = data.shares;
+  state.people = data.people;
+  await tidySharedIn();
   refreshTrash();
   renderSide();
   renderSidebar();
@@ -511,6 +534,8 @@ async function applyRemoteChanges() {
   } else {
     mainIsStale = true;
   }
+  reportOthersChanges(before);
+  checkOpenNotice();
 }
 
 // Something deleted on this device came back, because it was changed or
@@ -562,7 +587,7 @@ async function clearOutEmpties() {
   const startSide = state.side;
   for (const name of ['notes', 'tasks']) {
     state.side = name;
-    for (const item of side().items().filter(i => isEmptyItem(i) && i.id !== view().currentId)) {
+    for (const item of side().items().filter(i => isEmptyItem(i) && i.id !== view().currentId && !isSharedIn(i))) {
       await removeItem(item, true);
     }
   }
@@ -583,8 +608,10 @@ async function startApp(user) {
     return;
   }
   applyPrefs(Storage.loadPrefs());
+  await tidySharedIn();
   await clearOutEmpties();
   render();
+  checkOpenNotice();
   await offerOldDeviceData();
   renderReminder();
   Storage.sync();
@@ -687,6 +714,21 @@ async function init() {
     shareNew: byId('share-new'),
     shareOff: byId('share-off'),
     shareMessage: byId('share-message'),
+    sharePersonForm: byId('share-person-form'),
+    sharePersonEmail: byId('share-person-email'),
+    sharePersonSend: byId('share-person-send'),
+    sharePersonExplain: byId('share-person-explain'),
+    sharePersonWith: byId('share-person-with'),
+    sharePersonName: byId('share-person-name'),
+    sharePersonMessage: byId('share-person-message'),
+    shareByLink: byId('share-by-link'),
+    itemShared: byId('item-shared'),
+    choiceDialog: byId('choice-dialog'),
+    choiceMessage: byId('choice-message'),
+    choiceActions: byId('choice-actions'),
+    nameForm: byId('name-form'),
+    myName: byId('my-name'),
+    nameMessage: byId('name-message'),
     viewer: byId('viewer'),
     viewerTitle: byId('viewer-title'),
     viewerBody: byId('viewer-body'),

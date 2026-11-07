@@ -137,6 +137,7 @@ async function moveThing(what, folderId) {
   } else {
     const item = side().items().find(i => i.id === what.id);
     if (!item || (item.folderId || null) === folderId) return;
+    if (isSharedIn(item)) return; // only its owner can move it
     await flushSaves();
     item.folderId = folderId; // moving doesn't count as editing, so the date stays
     await runSave(() => side().save(item));
@@ -227,7 +228,19 @@ function levelRows(parentId, depth) {
 }
 
 // Pinning isn't editing, so an item's "last edited" date stays the same.
+// Pinning something shared with you pins it for you only.
 async function togglePin(kind, record) {
+  if (kind === 'item' && isSharedIn(record)) {
+    try {
+      await Storage.pinShared(sideKind(), record.id, !record.pinned);
+    } catch (err) {
+      console.error(err);
+      showMessage(NEEDS_CONNECTION);
+      return;
+    }
+    await reloadFromStorage();
+    return;
+  }
   record.pinned = !record.pinned;
   if (kind === 'folder') await runSave(() => Storage.saveFolder(record));
   else await runSave(() => side().save(record));
@@ -268,24 +281,29 @@ function itemRow(item) {
     open.setAttribute('aria-current', 'true');
   }
   if (item.pinned) open.append(pinMark());
-  open.append(el('span', 'item-title', title), el('span', 'item-date', formatDate(item.updatedAt)));
+  if (isShared(item)) open.append(shareMark());
+  const notice = shareNotice(item);
+  open.append(el('span', 'item-title', title), notice
+    ? el('span', 'item-date share-notice', notice.label)
+    : el('span', 'item-date', formatDate(item.updatedAt)));
 
+  // Something shared with you can't be moved, and deleting it removes it from your Anthology only.
+  const sharedIn = isSharedIn(item);
   const move = () => openMoveDialog({ kind: 'item', id: item.id }, title);
   const pinLabel = item.pinned ? 'Unpin' : 'Pin';
+  const removeLabel = sharedIn ? 'Remove' : 'Delete';
   const actions = el('span', 'item-actions');
-  actions.append(
-    button('icon-button', pinLabel, `${pinLabel} ${title}`, () => togglePin('item', item)),
-    button('icon-button', 'Move', `Move ${title}`, move),
-    button('icon-button danger', 'Delete', `Delete ${title}`, () => deleteItem(item))
-  );
+  actions.append(button('icon-button', pinLabel, `${pinLabel} ${title}`, () => togglePin('item', item)));
+  if (!sharedIn) actions.append(button('icon-button', 'Move', `Move ${title}`, move));
+  actions.append(button('icon-button danger', removeLabel, `${removeLabel} ${title}`, () => deleteItem(item)));
   const more = moreButton(`More for ${title}`, [
     { label: pinLabel, run: () => togglePin('item', item) },
-    { label: 'Move to…', run: move },
-    { label: 'Delete', danger: true, run: () => deleteItem(item) },
+    ...(sharedIn ? [] : [{ label: 'Move to…', run: move }]),
+    { label: removeLabel, danger: true, run: () => deleteItem(item) },
   ]);
 
   row.append(open, actions, more);
-  makeDraggable(row, { kind: 'item', id: item.id });
+  if (!sharedIn) makeDraggable(row, { kind: 'item', id: item.id });
   li.append(row);
   return li;
 }
